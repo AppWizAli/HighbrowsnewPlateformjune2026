@@ -34,29 +34,19 @@ $result = $stmt->get_result();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <link rel="stylesheet" href="css/style1.css">
 </head>
 <body>
 <div class="main">
     <?php include "header.php"; ?>
     <div class="main-content" id="main-content">
-        <header class="mb-4">
-            <h1>Students And Results</h1>
-            <p class="text-muted mb-0">Open each student profile to inspect test-wise, subject-wise, and question-wise performance.</p>
+        <header>
+            <h1>Welcome to the Admin Panel</h1>
         </header>
 
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
-            <div>
-                <strong>Student Registry</strong>
-                <div class="text-muted small">Manage students, remove entries, and reset test attempts.</div>
-            </div>
-            <button class="btn btn-danger" id="deleteAllUsers">Delete All Users</button>
-        </div>
+        <!-- Delete All Users Button -->
+        <button class="btn btn-danger mb-3" id="deleteAllUsers">Delete All Users</button>
 
         <!-- Users Table -->
         <table class="table table-bordered table-hover">
@@ -82,7 +72,7 @@ $result = $stmt->get_result();
                         echo "<td>" . htmlspecialchars($row['group_name']) . "</td>";
                         echo "<td>";
                         // Show Result button
-                        echo "<button type='button' class='btn btn-info btn-sm show-result' data-id='" . htmlspecialchars($row['id']) . "'>View Full Result</button> ";
+                        echo "<button type='button' class='btn btn-info btn-sm show-result' data-id='" . htmlspecialchars($row['id']) . "'>Show Result</button> ";
                         // Delete User button
                         echo "<button type='button' class='btn btn-danger btn-sm delete-user' data-id='" . htmlspecialchars($row['id']) . "'>Delete</button> ";
                         // Reschedule Test button
@@ -101,10 +91,10 @@ $result = $stmt->get_result();
 
 <!-- Modal for showing results -->
 <div class="modal fade" id="resultModal" tabindex="-1" aria-labelledby="resultModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="resultModalLabel">Student Result Detail</h5>
+                <h5 class="modal-title" id="resultModalLabel">User Results</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>

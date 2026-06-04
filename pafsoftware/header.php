@@ -1,6 +1,6 @@
 <div class="sidebar">
             <div class="logo text-center">
-                <h2>PAF Admin</h2>
+                <h2>Admin Panel</h2>
             </div>
             <ul>
                 <li><a href="admin1_pannel.php">Dashboard</a></li>
@@ -10,7 +10,7 @@
                 <li><a href="show-subject.php">Show Subject</a></li>
                 <li><a href="add-questions.php" >Add Questions</a></li>
                 <li><a href="show-question.php" >Show Questions</a></li>
-                <li><a href="show-users.php">Students & Results</a></li>
-                <li><a href="show_user_answers.php">Answer Review</a></li>
+                <li><a href="show-users.php">show Users</a></li>
+                <li><a href="show_user_answers.php">Users Answers</a></li>
             </ul>
         </div>

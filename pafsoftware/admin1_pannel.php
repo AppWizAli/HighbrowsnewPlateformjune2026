@@ -32,7 +32,16 @@ $admin_id = $_SESSION['admin_id'];
                 <a class="nav-link"  style="text-decoration:none; border: none; padding:12px 16px; background-color:rgb(27, 167, 253); color:white; border-radius:12px; " href="logout.php">Logout</a>
             </section>
             <div class="main2">
-                <!-- Additional content can go here -->
+                <div style="display:flex; gap:20px; flex-wrap:wrap; width:90%; margin:20px auto;">
+                    <a href="register.php" target="_blank" style="text-decoration:none; min-width:240px; flex:1; border:1px solid #d9e3f0; border-radius:16px; padding:22px; background:#fff; color:#111827; box-shadow:0 8px 24px rgba(15, 23, 42, 0.08);">
+                        <h3 style="margin:0 0 10px 0;">Student Register</h3>
+                        <p style="margin:0; color:#4b5563;">Open the student registration page in a new tab.</p>
+                    </a>
+                    <a href="userlogin.php" target="_blank" style="text-decoration:none; min-width:240px; flex:1; border:1px solid #d9e3f0; border-radius:16px; padding:22px; background:#fff; color:#111827; box-shadow:0 8px 24px rgba(15, 23, 42, 0.08);">
+                        <h3 style="margin:0 0 10px 0;">Student Login</h3>
+                        <p style="margin:0; color:#4b5563;">Open the student login page in a new tab.</p>
+                    </a>
+                </div>
             </div>
         </div>
     </div>

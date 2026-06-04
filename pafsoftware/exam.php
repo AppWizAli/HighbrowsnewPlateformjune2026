@@ -1,6 +1,14 @@
 <?php
 session_start();
 
+$redirectTarget = 'index.php';
+if (!empty($_SERVER['QUERY_STRING'])) {
+    $redirectTarget .= '?' . $_SERVER['QUERY_STRING'];
+}
+
+header('Location: ' . $redirectTarget);
+exit();
+
 require_once __DIR__ . '/db_config.php';
 require_once __DIR__ . '/result_service.php';
 
