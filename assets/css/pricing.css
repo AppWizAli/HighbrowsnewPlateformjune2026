@@ -1,0 +1,316 @@
+/* pricing section styling */
+
+.pricing-section {
+    padding: 120px 7%;
+}
+
+.pricing-container {
+    width: 100%;
+    height: auto;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+}
+
+.pricing-box {
+    width: 30%;
+    height: auto;
+    padding: 25px 25px;
+    border: 1px solid #585b5b;
+    border-radius: 25px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1), 0 6px 20px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s;
+}
+
+.pricing-box:hover {
+    transform: translateY(-10px);
+}
+
+.pricing-box .pricing-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: #585b5b;
+}
+
+.pricing-box .price {
+    font-size: 40px;
+    font-weight: 600;
+}
+
+.pricing-box .seperator {
+    height: .5px;
+    width: 100%;
+    background: #585b5b;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+.pricing-box .pricing-btns {
+    width: 100%;
+    height: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.pricing-box .pricing-btns a {
+    width: 100%;
+    height: auto;
+}
+
+.pricing-box .pricing-btns .enroll {
+    width: 100%;
+    height: 45px;
+    background: #2c6b43;
+    color: #fff;
+    border: none;
+    outline: none;
+    border-radius: 10px;
+    transition: all .7s;
+}
+
+.pricing-box .pricing-btns .enroll:hover {
+    background: #fff;
+    color: #2c6b43;
+    border: 1.5px solid #2c6b43;
+    font-weight: 600;
+}
+
+.pricing-section .pricing-heading {
+    width: 100%;
+    height: auto;
+    display: flex;
+    justify-content: center;
+}
+
+.pricing-section .pricing-heading .pricing-heading-inner {
+    width: 70%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 120px;
+}
+
+.pricing-section .pricing-heading .pricing-heading-inner h2 {
+    font-size: 40px;
+    font-weight: 500;
+}
+
+.pricing-section .pricing-heading .pricing-heading-inner p {
+    font-size: 17px;
+    color: #585b5b;
+    line-height: 35px;
+    text-align: center;
+}
+
+/* popup styling */
+
+.pricing-info-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 100;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(4px);
+    display: none;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.popup-inner {
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 40px 35px;
+    color: #333;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    animation: slideUp 0.4s ease;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Close Button */
+.popup-close-btn {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 20px;
+}
+
+.popup-close-btn button {
+    background: #ff3b3b;
+    border: none;
+    color: white;
+    padding: 8px 18px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.popup-close-btn button:hover {
+    background: #d90000;
+}
+
+.popup-inner h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin-bottom: 25px;
+    color: #111;
+    border-bottom: 2px solid #eaeaea;
+    padding-bottom: 12px;
+    text-align: center;
+}
+
+/* Feature List */
+.features-desc ul {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+}
+
+.features-desc ul li {
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 14px;
+    position: relative;
+    padding-left: 28px;
+    color: #333;
+}
+
+.features-desc ul li::before {
+    content: "✔";
+    position: absolute;
+    left: 0;
+    top: 0;
+    color: #00c080;
+    font-size: 18px;
+    line-height: 1.5;
+}
+
+
+/* styling scrollbar (start) */
+.popup-inner::-webkit-scrollbar {
+    width: 8px;
+}
+
+.popup-inner::-webkit-scrollbar-track {
+    border-radius: 10px;
+}
+
+.popup-inner::-webkit-scrollbar-thumb {
+    background-color: #c1c1c1;
+    border-radius: 10px;
+    border: 2px solid #ffffff;
+}
+
+.popup-inner::-webkit-scrollbar-thumb:hover {
+    background-color: #a0a0a0;
+}
+
+/* styling scrollbar (end) */
+
+
+.pricing-box .program-features {
+    width: 100%;
+    height: auto;
+}
+
+.pricing-box .program-features ul li {
+    font-size: 16px;
+    color: #585b5b;
+    font-weight: 400;
+}
+
+.pricing-box .program-features p {
+    font-size: 16px;
+    color: #2c6b43;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 5px;
+}
+
+
+
+
+
+/* making pricing section responsive */
+
+@media screen and (max-width:1000px) {
+    .pricing-container {
+        width: 100%;
+        height: auto;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        gap: 35px;
+    }
+
+    .pricing-box {
+        width: 45%;
+        padding: 25px 25px;
+    }
+
+    .pricing-section .pricing-heading .pricing-heading-inner {
+        width: 90%;
+    }
+
+    .pricing-section {
+        padding: 120px .5%;
+    }
+}
+
+@media screen and (max-width:645px) {
+
+    .popup-inner {
+        width: 95%;
+    }
+}
+
+@media screen and (max-width:600px) {
+    .pricing-box {
+        width: 90%;
+        padding: 25px 25px;
+    }
+
+    .pricing-section .pricing-heading .pricing-heading-inner p {
+        font-size: 16px;
+        line-height: 30px;
+    }
+}
