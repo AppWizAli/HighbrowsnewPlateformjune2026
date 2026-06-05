@@ -6,7 +6,6 @@ require_once __DIR__ . '/db_config.php';
 require_once __DIR__ . '/result_service.php';
 
 $pdo = getPDOConnection();
-pafEnsureResultTables($pdo);
 
 if (!isset($_POST['user_id'], $_POST['question_id'])) {
     echo json_encode([

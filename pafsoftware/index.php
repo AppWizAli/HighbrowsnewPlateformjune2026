@@ -593,6 +593,7 @@ $markForReview = (int) ($currentStatus['mark_for_review'] ?? 0);
                         $isMarkedForReview = $result['mark_for_review'] ?? 0;
                         $userAnswer = $result['answer'] ?? '';
                         $isSkipped = $result['is_skipped'] ?? 0;
+                        $questionLabel = 'Question ' . ($index + 1);
                         
 
                         $highlightStyle = 'class="not-answered-question"';
@@ -615,8 +616,10 @@ $markForReview = (int) ($currentStatus['mark_for_review'] ?? 0);
                         $isSelected = ($currentQuestionIndex == $index) ? 'selected="selected"' : '';
                     ?>
                         <option value="<?php echo (int) $index; ?>"
+                            data-base-label="<?php echo pafEsc($questionLabel); ?>"
+                            data-status-icon="<?php echo pafEsc(html_entity_decode($isMarkedForReview == 1 ? '&#9888;' : (($userAnswer !== '' && $userAnswer !== 'F') ? '&#10003;' : '&#10005;'), ENT_QUOTES, 'UTF-8')); ?>"
                             <?php echo $isSelected; ?> <?php echo $highlightStyle; ?>>
-                            Question <?php echo ($index + 1) . ' ' . html_entity_decode($isMarkedForReview == 1 ? '&#9888;' : (($userAnswer !== '' && $userAnswer !== 'F') ? '&#10003;' : '&#10005;'), ENT_QUOTES, 'UTF-8'); ?>
+                            <?php echo $isSelected ? $questionLabel : $questionLabel . ' ' . html_entity_decode($isMarkedForReview == 1 ? '&#9888;' : (($userAnswer !== '' && $userAnswer !== 'F') ? '&#10003;' : '&#10005;'), ENT_QUOTES, 'UTF-8'); ?>
                         </option>
                     <?php } ?>
                 </select>
@@ -748,6 +751,25 @@ $markForReview = (int) ($currentStatus['mark_for_review'] ?? 0);
         saveAnswerAndNavigate(questionIndex);
     }
 
+    function setQuestionDropdownDisplay(showIcons) {
+        const dropdown = document.getElementById('move_to_question');
+        if (!dropdown) {
+            return;
+        }
+
+        Array.from(dropdown.options).forEach(function(option) {
+            const baseLabel = option.getAttribute('data-base-label') || option.text;
+            const statusIcon = option.getAttribute('data-status-icon') || '';
+
+            if (showIcons) {
+                option.text = statusIcon ? (baseLabel + ' ' + statusIcon) : baseLabel;
+                return;
+            }
+
+            option.text = option.selected ? baseLabel : (statusIcon ? (baseLabel + ' ' + statusIcon) : baseLabel);
+        });
+    }
+
     function handleNext(totalQuestions, currentQuestionIndex) {
         if (currentQuestionIndex + 1 >= totalQuestions) {
             const popupModal = document.getElementById('popupModal');
@@ -761,6 +783,18 @@ $markForReview = (int) ($currentStatus['mark_for_review'] ?? 0);
     }
 
     $(document).ready(function() {
+        setQuestionDropdownDisplay(false);
+
+        $('#move_to_question').on('focus mousedown', function() {
+            setQuestionDropdownDisplay(true);
+        });
+
+        $('#move_to_question').on('change blur', function() {
+            setTimeout(function() {
+                setQuestionDropdownDisplay(false);
+            }, 0);
+        });
+
         $('input[name="answer"], input[name="mark_for_review"]').on('change', function() {
             syncNoAnswerSelection();
             var formData = $('#answerForm').serialize();
@@ -934,79 +968,76 @@ $markForReview = (int) ($currentStatus['mark_for_review'] ?? 0);
         $.ajax({
             url: 'get_subject_results.php',
             type: 'POST',
+            dataType: 'json',
             data: {
                 user_id: '<?php echo $user["id"]; ?>',
                 subject_id: '<?php echo $subject_id; ?>'
             },
             success: function(response) {
-                try {
-                    const data = JSON.parse(response);
-                    if (data.success) {
-                        const correctAnswers = data.correct_answers || 0;
-                        const percentage = data.percentage || 0;
-                        
-                        // Update modal content
-                        document.getElementById('modalSubjectName').textContent = data.subject_name;
-                        document.getElementById('modalCorrectAnswers').textContent = correctAnswers;
-                        document.getElementById('modalTotalQuestions').textContent = data.total_questions;
-                        document.getElementById('modalPercentage').textContent = percentage + '%';
-                        
-                        // Show pass/fail message
-                        const passFailMessage = document.getElementById('modalPassFailMessage');
-                        if (percentage >= 50) {
-                            passFailMessage.textContent = 'Congratulations! You have passed the test.';
-                            passFailMessage.style.color = '#4CAF50';
-                        } else {
-                            passFailMessage.textContent = 'You have failed the test.';
-                            passFailMessage.style.color = '#f44336';
-                        }
-                        
-                        // Check if this is the last subject
-                        <?php if (!$isLastSubject) { ?>
-                            // Show next test button for next subject
-                            const nextTestLink = document.getElementById('modalNextTestLink');
-                            nextTestLink.href = '#';
-                            nextTestLink.textContent = 'Start <?php echo pafEsc($nextSubjectName); ?> Test';
-                            nextTestLink.onclick = function() {
-                                console.log('Navigating to next subject: <?php echo htmlspecialchars($nextSubjectId); ?>');
-                                // Close the subject results modal
-                                document.getElementById('subjectResultsModal').style.display = 'none';
-                                // Clear session storage for new subject
-                                sessionStorage.removeItem('endTime');
-                                sessionStorage.removeItem('testStarted');
-                                sessionStorage.removeItem('currentSubjectId');
-                                // Navigate to next subject
-                                window.location.href = '?subject_id=<?php echo htmlspecialchars($nextSubjectId); ?>&q=0';
-                                return false;
-                            };
-                            document.getElementById('modalNextTestButton').style.display = 'block';
-                        <?php } else { ?>
-                            // Show overall results button for last subject
-                            const overallResultsLink = document.getElementById('modalNextTestLink');
-                            overallResultsLink.href = '#';
-                            overallResultsLink.textContent = 'Show Overall Results';
-                            overallResultsLink.onclick = function() {
-                                document.getElementById('subjectResultsModal').style.display = 'none';
-                                showOverallResults();
-                                return false;
-                            };
-                            document.getElementById('modalNextTestButton').style.display = 'block';
-                        <?php } ?>
-                        
-                        // Show the subject results modal
-                        document.getElementById('subjectResultsModal').style.display = 'block';
-                        
+                const data = (typeof response === 'string') ? JSON.parse(response) : response;
+
+                if (data.success) {
+                    const correctAnswers = data.correct_answers || 0;
+                    const percentage = data.percentage || 0;
+                    
+                    // Update modal content
+                    document.getElementById('modalSubjectName').textContent = data.subject_name;
+                    document.getElementById('modalCorrectAnswers').textContent = correctAnswers;
+                    document.getElementById('modalTotalQuestions').textContent = data.total_questions;
+                    document.getElementById('modalPercentage').textContent = percentage + '%';
+                    
+                    // Show pass/fail message
+                    const passFailMessage = document.getElementById('modalPassFailMessage');
+                    if (percentage >= 50) {
+                        passFailMessage.textContent = 'Congratulations! You have passed the test.';
+                        passFailMessage.style.color = '#4CAF50';
                     } else {
-                        console.error('Error in response:', data.error);
-                        alert('Error loading results. Please try again.');
+                        passFailMessage.textContent = 'You have failed the test.';
+                        passFailMessage.style.color = '#f44336';
                     }
-                } catch (e) {
-                    console.error('Error parsing response:', e);
-                    alert('Error loading results. Please try again.');
+                    
+                    // Check if this is the last subject
+                    <?php if (!$isLastSubject) { ?>
+                        // Show next test button for next subject
+                        const nextTestLink = document.getElementById('modalNextTestLink');
+                        nextTestLink.href = '#';
+                        nextTestLink.textContent = 'Start <?php echo pafEsc($nextSubjectName); ?> Test';
+                        nextTestLink.onclick = function() {
+                            console.log('Navigating to next subject: <?php echo htmlspecialchars($nextSubjectId); ?>');
+                            // Close the subject results modal
+                            document.getElementById('subjectResultsModal').style.display = 'none';
+                            // Clear session storage for new subject
+                            sessionStorage.removeItem('endTime');
+                            sessionStorage.removeItem('testStarted');
+                            sessionStorage.removeItem('currentSubjectId');
+                            // Navigate to next subject
+                            window.location.href = '?subject_id=<?php echo htmlspecialchars($nextSubjectId); ?>&q=0';
+                            return false;
+                        };
+                        document.getElementById('modalNextTestButton').style.display = 'block';
+                    <?php } else { ?>
+                        // Show overall results button for last subject
+                        const overallResultsLink = document.getElementById('modalNextTestLink');
+                        overallResultsLink.href = '#';
+                        overallResultsLink.textContent = 'Show Overall Results';
+                        overallResultsLink.onclick = function() {
+                            document.getElementById('subjectResultsModal').style.display = 'none';
+                            showOverallResults();
+                            return false;
+                        };
+                        document.getElementById('modalNextTestButton').style.display = 'block';
+                    <?php } ?>
+                    
+                    // Show the subject results modal
+                    document.getElementById('subjectResultsModal').style.display = 'block';
+                    
+                } else {
+                    console.error('Error in response:', data.error);
+                    alert(data.error || 'Error loading results. Please try again.');
                 }
             },
             error: function(xhr, status, error) {
-                console.error('Error fetching results:', error);
+                console.error('Error fetching results:', error, xhr.responseText);
                 alert('Error loading results. Please try again.');
             }
         });

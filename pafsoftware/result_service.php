@@ -212,8 +212,6 @@ function pafAnswerLabel(string $answer, array $row): string
 
 function pafBuildSubjectResult(PDO $pdo, string $userId, int $subjectId): array
 {
-    pafEnsureResultTables($pdo);
-
     $subjectStatement = $pdo->prepare(
         'SELECT s.id, s.name AS subject_name, s.test_id, t.test_name
          FROM subjects s
