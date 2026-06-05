@@ -1,6 +1,6 @@
 
 <?php
-header('Location: /highbrows_software/signup');
+header('Location: /highbrows_software/public/register');
 exit;
 ?>
 

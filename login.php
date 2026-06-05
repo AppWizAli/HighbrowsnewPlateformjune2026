@@ -1,5 +1,5 @@
 <?php
-header('Location: /highbrows_software/login');
+header('Location: /highbrows_software/public/login');
 exit;
 ?>
 
