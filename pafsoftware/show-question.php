@@ -12,16 +12,46 @@ $testId = isset($_GET['test_id']) && (int) $_GET['test_id'] > 0 ? (int) $_GET['t
 $subjectId = isset($_GET['subject_id']) && (int) $_GET['subject_id'] > 0 ? (int) $_GET['subject_id'] : 0;
 $search = trim((string) ($_GET['search'] ?? ''));
 
+$selectedSubject = null;
+if ($subjectId > 0) {
+    $selectedSubjectStatement = $pdo->prepare(
+        'SELECT id, test_id, name, time_in_minutes
+         FROM subjects
+         WHERE id = ?
+         LIMIT 1'
+    );
+    $selectedSubjectStatement->execute([$subjectId]);
+    $selectedSubject = $selectedSubjectStatement->fetch(PDO::FETCH_ASSOC) ?: null;
+
+    if ($selectedSubject === null) {
+        $subjectId = 0;
+    } elseif ($testId <= 0) {
+        $testId = (int) $selectedSubject['test_id'];
+    } elseif ($testId !== (int) $selectedSubject['test_id']) {
+        $subjectId = 0;
+        $selectedSubject = null;
+    }
+}
+
 $subjectsSql = 'SELECT id, test_id, name, time_in_minutes FROM subjects';
 $subjectParams = [];
 if ($testId > 0) {
     $subjectsSql .= ' WHERE test_id = ?';
     $subjectParams[] = $testId;
+} else {
+    $subjectsSql .= ' WHERE 1 = 0';
 }
 $subjectsSql .= ' ORDER BY name ASC, id ASC';
 $subjectsStatement = $pdo->prepare($subjectsSql);
 $subjectsStatement->execute($subjectParams);
 $subjects = $subjectsStatement->fetchAll(PDO::FETCH_ASSOC);
+
+if ($subjectId > 0) {
+    $validSubjectIds = array_map(static fn(array $subject): int => (int) $subject['id'], $subjects);
+    if (!in_array($subjectId, $validSubjectIds, true)) {
+        $subjectId = 0;
+    }
+}
 
 $questionSql = 'SELECT
                     q.id,
@@ -151,7 +181,7 @@ $summary = [
                         <div>
                             <label class="label" for="subject_id">Filter By Subject</label>
                             <select id="subject_id" name="subject_id">
-                                <option value="">All subjects</option>
+                                <option value=""><?= $testId > 0 ? 'All subjects' : 'Select a test first' ?></option>
                                 <?php foreach ($subjects as $subject): ?>
                                     <option value="<?= (int) $subject['id'] ?>" <?= $subjectId === (int) $subject['id'] ? 'selected' : '' ?>>
                                         <?= pafAdminEsc($subject['name']) ?>
@@ -242,6 +272,33 @@ $summary = [
     </div>
 
     <script>
+        const testFilter = document.getElementById('test_id');
+        const subjectFilter = document.getElementById('subject_id');
+
+        if (testFilter && subjectFilter) {
+            testFilter.addEventListener('change', function() {
+                const selectedTestId = this.value;
+
+                if (!selectedTestId) {
+                    subjectFilter.innerHTML = '<option value="">Select a test first</option>';
+                    return;
+                }
+
+                subjectFilter.innerHTML = '<option value="">Loading subjects...</option>';
+
+                fetch('get_subjects_by_test.php?test_id=' + encodeURIComponent(selectedTestId))
+                    .then(function(response) {
+                        return response.text();
+                    })
+                    .then(function(html) {
+                        subjectFilter.innerHTML = html;
+                    })
+                    .catch(function() {
+                        subjectFilter.innerHTML = '<option value="">Unable to load subjects</option>';
+                    });
+            });
+        }
+
         function deleteQuestion(id) {
             if (!confirm('Delete this question?')) {
                 return;
