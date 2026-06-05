@@ -65,8 +65,8 @@
                 <li><a class="navlink" href="houses.html">Houses</a></li>
             </ul>
             <div class="menubuttons">
-                <a href="signup.html" class="signup">Sign Up</a>
-                <a href="login.html" class="login">Login</a>
+                <a href="{{ route('signup.form') }}" class="signup">Sign Up</a>
+                <a href="{{ route('login.form') }}" class="login">Login</a>
             </div>
         </div>
     </div>

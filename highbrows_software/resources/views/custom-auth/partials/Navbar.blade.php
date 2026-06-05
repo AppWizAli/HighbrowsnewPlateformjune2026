@@ -86,7 +86,7 @@
             <button type="button" class="searchBoxTggler btn d-none d-lg-inline-block">
                 <i class="far fa-search"></i>
             </button>
-            <a href="{{ url('/login') }}" class="vs-btn custom-btn">
+            <a href="{{ route('login.form') }}" class="vs-btn custom-btn">
                 <i class="fal fa-user"></i> Login & Register
             </a>
         </div>
