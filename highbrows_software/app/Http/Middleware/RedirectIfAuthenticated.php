@@ -6,6 +6,7 @@ use App\Providers\RouteServiceProvider;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class RedirectIfAuthenticated
 {
@@ -23,6 +24,31 @@ class RedirectIfAuthenticated
 
         foreach ($guards as $guard) {
             if (Auth::guard($guard)->check()) {
+                $user = Auth::guard($guard)->user();
+
+                Log::info('RedirectIfAuthenticated triggered', [
+                    'path' => $request->path(),
+                    'full_url' => $request->fullUrl(),
+                    'user_id' => $user?->id,
+                    'usertype' => $user?->usertype,
+                ]);
+
+                if ($user?->usertype === 'admin') {
+                    return redirect()->route('admin.dashboard');
+                }
+
+                if ($user?->usertype === 'subadmin') {
+                    return redirect()->route('subadmin.dashboard');
+                }
+
+                if ($user?->usertype === 'cordinator') {
+                    return redirect()->route('cordinator.dashboard');
+                }
+
+                if ($user?->usertype === 'user') {
+                    return redirect()->route('student.dashboard');
+                }
+
                 return redirect(RouteServiceProvider::HOME);
             }
         }

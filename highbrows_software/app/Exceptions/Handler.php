@@ -44,7 +44,22 @@ class Handler extends ExceptionHandler
     public function register()
     {
         $this->reportable(function (Throwable $e) {
-            //
+            if (app()->bound('request')) {
+                $request = request();
+
+                logger()->error('Highbrows request exception', [
+                    'message' => $e->getMessage(),
+                    'exception_class' => get_class($e),
+                    'url' => $request->fullUrl(),
+                    'path' => $request->path(),
+                    'method' => $request->method(),
+                    'route_name' => optional($request->route())->getName(),
+                    'ip' => $request->ip(),
+                    'user_id' => optional($request->user())->id,
+                    'session_id' => optional($request->session())->getId(),
+                    'input' => $request->except(['password', 'password_confirmation', 'current_password']),
+                ]);
+            }
         });
     }
 }
