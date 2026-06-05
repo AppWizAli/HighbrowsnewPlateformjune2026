@@ -122,7 +122,7 @@
   <i class="far fa-search"></i>
 </button>
 
-                <a href="/highbrows_software/login" class="vs-btn custom-btn" >
+                <a href="login.php" class="vs-btn custom-btn" >
                     <i class="fal fa-user"></i> Login & Register
                 </a>
             </div>

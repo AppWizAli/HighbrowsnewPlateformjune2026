@@ -42,13 +42,13 @@
             </div>
         @else
             <div class="buttons">
-                <a href="{{route('signup.form')}}" class="signup">Sign Up</a>
+                <a href="{{route('login.form')}}" class="signup">Sign Up</a>
                 <a href="{{route('login.form')}}" class="login">Login</a>
             </div>
         @endif
     @else
         <div class="buttons">
-            <a href="{{route('signup.form')}}" class="signup">Sign Up</a>
+            <a href="{{route('login.form')}}" class="signup">Sign Up</a>
             <a href="{{route('login.form')}}" class="login">Login</a>
         </div>
     @endauth
@@ -65,7 +65,7 @@
                 <li><a class="navlink" href="houses.html">Houses</a></li>
             </ul>
             <div class="menubuttons">
-                <a href="{{ route('signup.form') }}" class="signup">Sign Up</a>
+                <a href="{{ route('login.form') }}" class="signup">Sign Up</a>
                 <a href="{{ route('login.form') }}" class="login">Login</a>
             </div>
         </div>
