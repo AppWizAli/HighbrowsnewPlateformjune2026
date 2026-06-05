@@ -26,7 +26,7 @@ if ($selectedTestId > 0) {
     <title>Add Questions</title>
     <link rel="stylesheet" href="css/style1.css">
 </head>
-<body>
+<body class="questions-page">
     <div class="main">
         <?php include __DIR__ . '/header.php'; ?>
 
@@ -47,7 +47,7 @@ if ($selectedTestId > 0) {
                 </div>
             <?php endif; ?>
 
-            <section class="panel-card">
+            <section class="panel-card question-page-panel">
                 <div class="panel-head">
                     <div>
                         <h2>Target Subject</h2>
@@ -80,7 +80,7 @@ if ($selectedTestId > 0) {
                         </div>
                     </div>
 
-                    <div class="dashboard-grid">
+                    <div class="question-entry-layout">
                         <div class="detail-card">
                             <div class="detail-head">
                                 <div>
@@ -99,11 +99,11 @@ if ($selectedTestId > 0) {
                             </div>
                         </div>
 
-                        <div class="detail-card">
+                        <div class="detail-card question-manual-card">
                             <div class="detail-head">
                                 <div>
                                     <h3>Manual Entry</h3>
-                                    <div class="detail-meta">Add individual questions with text, optional images, and answer keys.</div>
+                                    <div class="detail-meta">Add individual questions with text, optional images, and answer keys in a full-width editor.</div>
                                 </div>
                             </div>
 

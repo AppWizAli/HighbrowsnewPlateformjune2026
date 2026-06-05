@@ -6,31 +6,31 @@ $navItems = [
     [
         'file' => 'admin1_pannel.php',
         'label' => 'Dashboard',
-        'caption' => 'overview',
+        'icon' => '&#9635;',
         'match' => ['admin1_pannel.php'],
     ],
     [
         'file' => 'show_test.php',
         'label' => 'Tests',
-        'caption' => 'add and manage',
+        'icon' => '&#9638;',
         'match' => ['show_test.php', 'add_test.php', 'insert_test.php', 'update_test.php'],
     ],
     [
         'file' => 'show-subject.php',
         'label' => 'Subjects',
-        'caption' => 'organize sections',
+        'icon' => '&#9675;',
         'match' => ['show-subject.php', 'add-subject.php', 'insert_subjects.php'],
     ],
     [
         'file' => 'show-question.php',
         'label' => 'Questions',
-        'caption' => 'build question bank',
+        'icon' => '&#63;',
         'match' => ['show-question.php', 'add-questions.php', 'edit_question.php', 'update_question.php', 'insert_questions.php'],
     ],
     [
         'file' => 'show-users.php',
         'label' => 'Students',
-        'caption' => 'results and reports',
+        'icon' => '&#9787;',
         'match' => ['show-users.php', 'show_user_answers.php', 'show-users-result.php', 'fetch_results.php'],
     ],
 ];
@@ -40,7 +40,7 @@ $navItems = [
         <div class="sidebar-brand-mark">PAF</div>
         <div>
             <strong>Admin Panel</strong>
-            <span>minimal control center</span>
+            <span>clean control</span>
         </div>
     </div>
 
@@ -48,8 +48,10 @@ $navItems = [
         <?php foreach ($navItems as $item): ?>
             <?php $isActive = in_array($currentPage, $item['match'], true); ?>
             <a class="sidebar-link <?= $isActive ? 'active' : '' ?>" href="<?= pafAdminEsc($item['file']) ?>">
-                <span><?= pafAdminEsc($item['label']) ?></span>
-                <small><?= pafAdminEsc($item['caption']) ?></small>
+                <span class="sidebar-link-row">
+                    <span class="sidebar-icon" aria-hidden="true"><?= html_entity_decode($item['icon'], ENT_QUOTES, 'UTF-8') ?></span>
+                    <span class="sidebar-label"><?= pafAdminEsc($item['label']) ?></span>
+                </span>
             </a>
         <?php endforeach; ?>
     </nav>

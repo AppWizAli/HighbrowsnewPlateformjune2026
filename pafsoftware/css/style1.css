@@ -1,23 +1,21 @@
-@import url('https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;500;600;700&display=swap');
-
 :root {
-    --admin-bg: #f3f5f8;
+    --admin-bg: #f4f7fb;
     --admin-panel: #ffffff;
-    --admin-panel-soft: #f8fafc;
+    --admin-panel-soft: #f7fafc;
     --admin-sidebar: #ffffff;
     --admin-ink: #152033;
-    --admin-muted: #6c7a8c;
-    --admin-line: #dfe5ec;
-    --admin-primary: #1f6feb;
-    --admin-primary-soft: #ebf3ff;
-    --admin-success: #17785f;
-    --admin-success-soft: #e4f8ef;
-    --admin-warning: #b97912;
-    --admin-warning-soft: #fff5df;
-    --admin-danger: #c43c4d;
-    --admin-danger-soft: #ffe9ec;
-    --admin-shadow: 0 18px 40px rgba(17, 24, 39, 0.08);
-    --admin-radius: 22px;
+    --admin-muted: #64748b;
+    --admin-line: #dde6ef;
+    --admin-primary: #2c7be5;
+    --admin-primary-soft: #eaf4ff;
+    --admin-success: #1f8f6b;
+    --admin-success-soft: #e7f8f1;
+    --admin-warning: #b78317;
+    --admin-warning-soft: #fff7e2;
+    --admin-danger: #ca4c61;
+    --admin-danger-soft: #ffedf0;
+    --admin-shadow: 0 14px 34px rgba(15, 23, 42, 0.07);
+    --admin-radius: 18px;
 }
 
 * {
@@ -32,10 +30,10 @@ body {
     margin: 0;
     min-height: 100vh;
     background:
-        radial-gradient(circle at top right, rgba(31, 111, 235, 0.12), transparent 24%),
-        linear-gradient(180deg, #f7f9fb 0%, #eef2f6 100%);
+        radial-gradient(circle at top right, rgba(44, 123, 229, 0.11), transparent 25%),
+        linear-gradient(180deg, #f8fbfd 0%, #eef4f8 100%);
     color: var(--admin-ink);
-    font-family: 'Inconsolata', monospace;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
 }
 
 body,
@@ -43,7 +41,7 @@ button,
 input,
 select,
 textarea {
-    font-family: 'Inconsolata', monospace;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
 }
 
 a {
@@ -56,31 +54,32 @@ a {
 }
 
 .sidebar {
-    width: 248px;
-    background: rgba(255, 255, 255, 0.92);
+    width: 196px;
+    background: rgba(255, 255, 255, 0.9);
     border-right: 1px solid rgba(223, 229, 236, 0.9);
-    padding: 22px 16px;
+    padding: 18px 12px;
     position: sticky;
     top: 0;
     align-self: flex-start;
     min-height: 100vh;
-    backdrop-filter: blur(14px);
+    backdrop-filter: blur(10px);
 }
 
 .sidebar-brand {
-    display: flex;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    gap: 10px;
     align-items: center;
-    padding: 4px 8px 20px;
+    padding: 4px 6px 18px;
 }
 
 .sidebar-brand-mark {
-    width: 44px;
-    height: 44px;
-    border-radius: 14px;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
     display: grid;
     place-items: center;
-    background: linear-gradient(145deg, #0f172a, #1f6feb);
+    background: linear-gradient(145deg, #2c7be5, #70b3ff);
     color: #fff;
     font-weight: 700;
     letter-spacing: 0.08em;
@@ -96,9 +95,9 @@ a {
 
 .sidebar-brand span {
     display: block;
-    margin-top: 4px;
+    margin-top: 2px;
     color: var(--admin-muted);
-    font-size: 0.88rem;
+    font-size: 0.78rem;
 }
 
 .sidebar-nav {
@@ -110,34 +109,45 @@ a {
     display: block;
     width: 100%;
     text-decoration: none;
-    padding: 12px 14px;
-    border-radius: 16px;
+    padding: 10px 10px;
+    border-radius: 14px;
     color: var(--admin-ink);
     background: transparent;
     transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.sidebar-link span,
-.sidebar-link small {
-    display: block;
+.sidebar-link-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
-.sidebar-link span {
+.sidebar-icon {
+    width: 28px;
+    height: 28px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 10px;
+    background: #f2f7fc;
+    color: var(--admin-primary);
+    font-size: 0.95rem;
     font-weight: 700;
-    font-size: 0.96rem;
 }
 
-.sidebar-link small {
-    margin-top: 4px;
-    color: var(--admin-muted);
-    font-size: 0.78rem;
+.sidebar-label {
+    font-weight: 600;
+    font-size: 0.9rem;
 }
 
 .sidebar-link:hover,
 .sidebar-link.active {
     background: var(--admin-primary-soft);
     box-shadow: inset 0 0 0 1px rgba(31, 111, 235, 0.16);
-    transform: translateX(2px);
+    transform: translateX(1px);
+}
+
+.sidebar-link.active .sidebar-icon {
+    background: #dcebff;
 }
 
 .main-content {
@@ -154,7 +164,7 @@ a {
 .sheet {
     border: 1px solid rgba(223, 229, 236, 0.95);
     border-radius: var(--admin-radius);
-    background: rgba(255, 255, 255, 0.96);
+    background: rgba(255, 255, 255, 0.97);
     box-shadow: var(--admin-shadow);
 }
 
@@ -169,7 +179,7 @@ a {
 }
 
 .page-hero h1 {
-    font-size: 1.6rem;
+    font-size: 1.42rem;
     line-height: 1.1;
 }
 
@@ -218,7 +228,7 @@ a {
 
 .panel-head h2,
 .detail-card h3 {
-    font-size: 1.12rem;
+    font-size: 1.02rem;
 }
 
 .stats-grid,
@@ -235,7 +245,7 @@ a {
 }
 
 .dashboard-grid {
-    grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.9fr);
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.85fr);
 }
 
 .filters-grid {
@@ -257,7 +267,7 @@ a {
 }
 
 .metric-card strong {
-    font-size: 1.42rem;
+    font-size: 1.24rem;
     font-weight: 700;
 }
 
@@ -363,7 +373,7 @@ textarea {
     color: var(--admin-ink);
     border-radius: 14px;
     padding: 11px 13px;
-    font-size: 0.95rem;
+    font-size: 0.92rem;
     outline: none;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -397,7 +407,7 @@ a.btn {
     gap: 8px;
     border: 0;
     border-radius: 14px;
-    padding: 10px 14px;
+    padding: 9px 13px;
     cursor: pointer;
     text-decoration: none;
     font-size: 0.92rem;
@@ -458,6 +468,7 @@ a.btn:hover {
 table {
     width: 100%;
     border-collapse: collapse;
+    table-layout: fixed;
 }
 
 th,
@@ -467,6 +478,7 @@ td {
     text-align: left;
     vertical-align: top;
     font-size: 0.92rem;
+    word-break: break-word;
 }
 
 th {
@@ -479,6 +491,10 @@ th {
 
 tbody tr:hover {
     background: rgba(239, 244, 250, 0.58);
+}
+
+tbody tr:nth-child(even) {
+    background: rgba(248, 251, 254, 0.7);
 }
 
 .table-actions,
@@ -633,7 +649,7 @@ tbody tr:hover {
 }
 
 .question-card {
-    padding: 16px;
+    padding: 18px;
     border: 1px solid var(--admin-line);
     border-radius: 18px;
     background: var(--admin-panel-soft);
@@ -669,7 +685,20 @@ tbody tr:hover {
 
 .result-shell,
 .result-shell * {
-    font-family: 'Inconsolata', monospace;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+}
+
+.question-entry-layout {
+    display: grid;
+    gap: 16px;
+}
+
+.question-manual-card {
+    width: 100%;
+}
+
+.question-page-panel {
+    padding: 22px;
 }
 
 .pagination {
