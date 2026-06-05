@@ -1,10 +1,19 @@
 <?php
 
+require_once __DIR__ . '/admin_helpers.php';
 require_once __DIR__ . '/db_config.php';
 require_once __DIR__ . '/result_service.php';
 
+pafAdminRequireLogin();
+
 $pdo = getPDOConnection();
-pafEnsureResultTables($pdo);
+$reportingReady = true;
+
+try {
+    pafEnsureResultTables($pdo);
+} catch (Throwable $exception) {
+    $reportingReady = false;
+}
 
 function pafEscResult($value): string
 {
@@ -16,6 +25,11 @@ $testId = isset($_GET['test_id']) && (int) $_GET['test_id'] > 0 ? (int) $_GET['t
 
 if ($userId === '') {
     echo '<p>User ID not provided.</p>';
+    exit();
+}
+
+if (!$reportingReady) {
+    echo '<p>Detailed result reporting is not available on this host right now.</p>';
     exit();
 }
 

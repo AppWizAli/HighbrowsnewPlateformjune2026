@@ -1,49 +1,52 @@
 <?php
-include 'config.php'; // Ensure this file correctly sets up $conn and other configurations
-session_start();
+require_once __DIR__ . '/admin_helpers.php';
+require_once __DIR__ . '/db_config.php';
+require_once __DIR__ . '/result_service.php';
 
-// Check if the admin is logged in
-if (!isset($_SESSION['admin_id'])) {
-    header('Location: login.php');
-    exit();
-}
+pafAdminRequireLogin();
 
-// Get the subject ID from the POST request
-$subject_id = isset($_POST['subject_id']) ? intval($_POST['subject_id']) : 0;
-
-if ($subject_id > 0) {
-    // Begin a transaction
-    $conn->begin_transaction();
-    
-    try {
-        // Delete questions related to the subject
-        $delete_questions_sql = "DELETE FROM questions WHERE subject_id = ?";
-        $delete_questions_stmt = $conn->prepare($delete_questions_sql);
-        if ($delete_questions_stmt === false) {
-            throw new Exception("Error preparing SQL: " . $conn->error);
-        }
-        $delete_questions_stmt->bind_param("i", $subject_id);
-        if (!$delete_questions_stmt->execute()) {
-            throw new Exception("Error executing deletion: " . $delete_questions_stmt->error);
-        }
-        $delete_questions_stmt->close();
-
-        // Commit the transaction
-        $conn->commit();
-        
-        // Return success response
-        echo 'success';
-        exit();
-    } catch (Exception $e) {
-        // Rollback the transaction if something fails
-        $conn->rollback();
-        // Return error response
-        echo 'error';
-        exit();
-    }
-} else {
+$subjectId = isset($_POST['subject_id']) ? (int) $_POST['subject_id'] : 0;
+if ($subjectId <= 0) {
     echo 'error';
     exit();
 }
 
-?>
+$pdo = getPDOConnection();
+$reportingReady = true;
+
+try {
+    pafEnsureResultTables($pdo);
+} catch (Throwable $exception) {
+    $reportingReady = false;
+}
+
+try {
+    $pdo->beginTransaction();
+
+    $questionStatement = $pdo->prepare('SELECT id FROM questions WHERE subject_id = ?');
+    $questionStatement->execute([$subjectId]);
+    $questionIds = array_map('intval', $questionStatement->fetchAll(PDO::FETCH_COLUMN));
+
+    if ($questionIds !== []) {
+        $placeholders = implode(',', array_fill(0, count($questionIds), '?'));
+        $deleteAnswers = $pdo->prepare("DELETE FROM answers WHERE question_id IN ($placeholders)");
+        $deleteAnswers->execute($questionIds);
+    }
+
+    if ($reportingReady) {
+        $deleteQuestionResults = $pdo->prepare('DELETE FROM question_result_details WHERE subject_id = ?');
+        $deleteQuestionResults->execute([$subjectId]);
+    }
+
+    $deleteQuestions = $pdo->prepare('DELETE FROM questions WHERE subject_id = ?');
+    $deleteQuestions->execute([$subjectId]);
+
+    $pdo->commit();
+    echo 'success';
+} catch (Throwable $exception) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
+    echo 'error';
+}

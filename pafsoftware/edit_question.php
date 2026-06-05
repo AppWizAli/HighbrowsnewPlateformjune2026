@@ -1,131 +1,133 @@
 <?php
-include 'config.php';
-session_start();
+require_once __DIR__ . '/admin_helpers.php';
+require_once __DIR__ . '/db_config.php';
 
-// Check if the admin is logged in
-if (!isset($_SESSION['admin_id'])) {
-    header('Location: login.php');
+pafAdminRequireLogin();
+
+$pdo = getPDOConnection();
+$flash = pafAdminPullFlash();
+$questionId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+
+if ($questionId <= 0) {
+    pafAdminSetFlash('error', 'Question not found.');
+    header('Location: show-question.php');
     exit();
 }
 
-// Get the question ID from the URL
-if (!isset($_GET['id'])) {
-    header('Location: admin_panel.php');
+$statement = $pdo->prepare(
+    'SELECT
+        q.*,
+        s.test_id,
+        s.name AS subject_name,
+        t.test_name
+     FROM questions q
+     INNER JOIN subjects s ON s.id = q.subject_id
+     INNER JOIN tests t ON t.id = s.test_id
+     WHERE q.id = ?
+     LIMIT 1'
+);
+$statement->execute([$questionId]);
+$question = $statement->fetch(PDO::FETCH_ASSOC);
+
+if (!$question) {
+    pafAdminSetFlash('error', 'Question not found.');
+    header('Location: show-question.php');
     exit();
 }
-
-$question_id = $_GET['id'];
-
-// Fetch the question from the database, including image columns
-$sql = "SELECT subject_id, question_text, question_image, option_a, option_a_image, option_b, option_b_image, option_c, option_c_image, option_d, option_d_image, correct_answer FROM questions WHERE id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $question_id);
-$stmt->execute();
-$result = $stmt->get_result();
-
-if ($result->num_rows == 0) {
-    header('Location: admin_panel.php');
-    exit();
-}
-
-$question = $result->fetch_assoc();
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Question</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="css/style1.css">
 </head>
 <body>
-<div class="main">
-        <?php include "header.php"; ?>
-        <div class="main-content" id="main-content">
-            <header>
-                <h1>Welcome to the Admin Panel</h1>
-            </header>
-            <section>
-                <h2>Edit Question</h2>
+    <div class="main">
+        <?php include __DIR__ . '/header.php'; ?>
+
+        <main class="main-content">
+            <section class="page-hero">
+                <div>
+                    <h1>Edit Question</h1>
+                    <p><?= pafAdminEsc($question['test_name']) ?> / <?= pafAdminEsc($question['subject_name']) ?> / Q<?= (int) $question['sequence_number'] ?></p>
+                </div>
+                <div class="action-row">
+                    <a class="btn btn-secondary" href="show-question.php?test_id=<?= (int) $question['test_id'] ?>&subject_id=<?= (int) $question['subject_id'] ?>">Back To Question Bank</a>
+                </div>
             </section>
-    <div class="container mt-4">
-        <form action="update_question.php" method="POST" enctype="multipart/form-data">
-            <input type="hidden" name="id" value="<?php echo $question_id; ?>">
-            
-            <div class="form-group">
-                <label for="subject_id">Subject ID</label>
-                <input type="text" name="subject_id" class="form-control" value="<?php echo htmlspecialchars($question['subject_id']); ?>" required>
-            </div>
 
-            <div class="form-group">
-                <label for="question_text">Question Text</label>
-                <textarea name="question_text" class="form-control" rows="3" required><?php echo htmlspecialchars($question['question_text']); ?></textarea>
-            </div>
+            <?php if ($flash): ?>
+                <div class="flash <?= pafAdminEsc($flash['type']) ?>">
+                    <?= pafAdminEsc($flash['message']) ?>
+                </div>
+            <?php endif; ?>
 
-            <div class="form-group">
-                <label for="question_image">Question Image</label>
-                <?php if (!empty($question['question_image'])): ?>
-                    <img src="<?php echo htmlspecialchars($question['question_image']); ?>" alt="Question Image" style="max-width: 100px;">
-                <?php endif; ?>
-                <input type="file" name="question_image" class="form-control-file">
-            </div>
+            <section class="panel-card">
+                <div class="panel-head">
+                    <div>
+                        <h2>Question Editor</h2>
+                        <p>Update text, answer keys, and optional media from one compact form.</p>
+                    </div>
+                </div>
 
-            <div class="form-group">
-                <label for="option_a">Option A</label>
-                <input type="text" name="option_a" class="form-control" value="<?php echo htmlspecialchars($question['option_a']); ?>" required>
-                <label for="option_a_image">Option A Image</label>
-                <?php if (!empty($question['option_a_image'])): ?>
-                    <img src="<?php echo htmlspecialchars($question['option_a_image']); ?>" alt="Option A Image" style="max-width: 50px;">
-                <?php endif; ?>
-                <input type="file" name="option_a_image" class="form-control-file">
-            </div>
+                <form class="sheet-form" method="POST" action="update_question.php" enctype="multipart/form-data">
+                    <input type="hidden" name="id" value="<?= (int) $question['id'] ?>">
+                    <input type="hidden" name="return_test_id" value="<?= (int) $question['test_id'] ?>">
+                    <input type="hidden" name="return_subject_id" value="<?= (int) $question['subject_id'] ?>">
 
-            <div class="form-group">
-                <label for="option_b">Option B</label>
-                <input type="text" name="option_b" class="form-control" value="<?php echo htmlspecialchars($question['option_b']); ?>" required>
-                <label for="option_b_image">Option B Image</label>
-                <?php if (!empty($question['option_b_image'])): ?>
-                    <img src="<?php echo htmlspecialchars($question['option_b_image']); ?>" alt="Option B Image" style="max-width: 50px;">
-                <?php endif; ?>
-                <input type="file" name="option_b_image" class="form-control-file">
-            </div>
+                    <div>
+                        <label class="label" for="question_text">Question Text</label>
+                        <textarea id="question_text" name="question_text" required><?= pafAdminEsc($question['question_text']) ?></textarea>
+                    </div>
 
-            <div class="form-group">
-                <label for="option_c">Option C</label>
-                <input type="text" name="option_c" class="form-control" value="<?php echo htmlspecialchars($question['option_c']); ?>" required>
-                <label for="option_c_image">Option C Image</label>
-                <?php if (!empty($question['option_c_image'])): ?>
-                    <img src="<?php echo htmlspecialchars($question['option_c_image']); ?>" alt="Option C Image" style="max-width: 50px;">
-                <?php endif; ?>
-                <input type="file" name="option_c_image" class="form-control-file">
-            </div>
+                    <div>
+                        <label class="label" for="question_image">Question Image</label>
+                        <?php if (!empty($question['question_image'])): ?>
+                            <div class="chip-row" style="margin-bottom:10px;">
+                                <img class="media-thumb" src="<?= pafAdminEsc($question['question_image']) ?>" alt="Question image">
+                            </div>
+                        <?php endif; ?>
+                        <input id="question_image" type="file" name="question_image" accept="image/*">
+                    </div>
 
-            <div class="form-group">
-                <label for="option_d">Option D</label>
-                <input type="text" name="option_d" class="form-control" value="<?php echo htmlspecialchars($question['option_d']); ?>" required>
-                <label for="option_d_image">Option D Image</label>
-                <?php if (!empty($question['option_d_image'])): ?>
-                    <img src="<?php echo htmlspecialchars($question['option_d_image']); ?>" alt="Option D Image" style="max-width: 50px;">
-                <?php endif; ?>
-                <input type="file" name="option_d_image" class="form-control-file">
-            </div>
+                    <div class="question-builder-grid">
+                        <?php foreach (['a', 'b', 'c', 'd', 'e'] as $option): ?>
+                            <div>
+                                <label class="label" for="option_<?= $option ?>">Option <?= strtoupper($option) ?> Text</label>
+                                <input id="option_<?= $option ?>" type="text" name="option_<?= $option ?>" value="<?= pafAdminEsc($question['option_' . $option]) ?>">
+                            </div>
+                            <div>
+                                <label class="label" for="option_<?= $option ?>_image">Option <?= strtoupper($option) ?> Image</label>
+                                <?php if (!empty($question['option_' . $option . '_image'])): ?>
+                                    <div class="chip-row" style="margin-bottom:10px;">
+                                        <img class="media-thumb" src="<?= pafAdminEsc($question['option_' . $option . '_image']) ?>" alt="Option image">
+                                    </div>
+                                <?php endif; ?>
+                                <input id="option_<?= $option ?>_image" type="file" name="option_<?= $option ?>_image" accept="image/*">
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
 
-            <div class="form-group">
-                <label for="correct_answer">Correct Answer</label>
-                <input type="text" name="correct_answer" class="form-control" value="<?php echo htmlspecialchars($question['correct_answer']); ?>" required>
-            </div>
+                    <div>
+                        <label class="label" for="correct_answer">Correct Answer</label>
+                        <select id="correct_answer" name="correct_answer" required>
+                            <?php foreach (['A', 'B', 'C', 'D', 'E'] as $answer): ?>
+                                <option value="<?= $answer ?>" <?= strtoupper((string) $question['correct_answer']) === $answer ? 'selected' : '' ?>>
+                                    Option <?= $answer ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
 
-            <button type="submit" class="btn btn-primary">Update Question</button>
-        </form>
-    </div>
-    </div>
+                    <div class="action-row">
+                        <button class="btn btn-primary" type="submit">Update Question</button>
+                        <a class="btn btn-secondary" href="show-question.php?test_id=<?= (int) $question['test_id'] ?>&subject_id=<?= (int) $question['subject_id'] ?>">Cancel</a>
+                    </div>
+                </form>
+            </section>
+        </main>
     </div>
 </body>
 </html>
-
-<?php
-$stmt->close();
-$conn->close();
-?>

@@ -1,264 +1,298 @@
 <?php
-include 'config.php'; // Ensure this file correctly sets up $conn and other configurations
-session_start();
+require_once __DIR__ . '/admin_helpers.php';
+require_once __DIR__ . '/db_config.php';
 
-// Check if the admin is logged in
-if (!isset($_SESSION['admin_id'])) {
-    header('Location: login.php');
-    exit();
+pafAdminRequireLogin();
+
+$pdo = getPDOConnection();
+$flash = pafAdminPullFlash();
+
+$tests = $pdo->query('SELECT id, test_name FROM tests ORDER BY test_name ASC, id ASC')->fetchAll(PDO::FETCH_ASSOC);
+$testId = isset($_GET['test_id']) && (int) $_GET['test_id'] > 0 ? (int) $_GET['test_id'] : 0;
+$subjectId = isset($_GET['subject_id']) && (int) $_GET['subject_id'] > 0 ? (int) $_GET['subject_id'] : 0;
+$search = trim((string) ($_GET['search'] ?? ''));
+
+$subjectsSql = 'SELECT id, test_id, name, time_in_minutes FROM subjects';
+$subjectParams = [];
+if ($testId > 0) {
+    $subjectsSql .= ' WHERE test_id = ?';
+    $subjectParams[] = $testId;
+}
+$subjectsSql .= ' ORDER BY name ASC, id ASC';
+$subjectsStatement = $pdo->prepare($subjectsSql);
+$subjectsStatement->execute($subjectParams);
+$subjects = $subjectsStatement->fetchAll(PDO::FETCH_ASSOC);
+
+$questionSql = 'SELECT
+                    q.id,
+                    q.subject_id,
+                    q.sequence_number,
+                    q.question_text,
+                    q.question_image,
+                    q.option_a,
+                    q.option_a_image,
+                    q.option_b,
+                    q.option_b_image,
+                    q.option_c,
+                    q.option_c_image,
+                    q.option_d,
+                    q.option_d_image,
+                    q.option_e,
+                    q.option_e_image,
+                    q.correct_answer,
+                    s.test_id,
+                    s.name AS subject_name,
+                    t.test_name
+                FROM questions q
+                INNER JOIN subjects s ON s.id = q.subject_id
+                INNER JOIN tests t ON t.id = s.test_id';
+$questionParams = [];
+$conditions = [];
+
+if ($testId > 0) {
+    $conditions[] = 's.test_id = ?';
+    $questionParams[] = $testId;
 }
 
-// Check database connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+if ($subjectId > 0) {
+    $conditions[] = 'q.subject_id = ?';
+    $questionParams[] = $subjectId;
 }
 
-// Fetch all tests for the filter
-$tests_query = "SELECT DISTINCT id, test_name FROM tests"; // Ensure the query includes the necessary columns
-$tests_result = $conn->query($tests_query);
-
-// Check if the query was successful
-if ($tests_result === false) {
-    echo "Error: " . $conn->error; // Output error if query fails
-    exit();
+if ($search !== '') {
+    $conditions[] = '(q.question_text LIKE ? OR s.name LIKE ? OR t.test_name LIKE ?)';
+    $searchLike = '%' . $search . '%';
+    array_push($questionParams, $searchLike, $searchLike, $searchLike);
 }
+
+if ($conditions !== []) {
+    $questionSql .= ' WHERE ' . implode(' AND ', $conditions);
+}
+
+$questionSql .= ' ORDER BY t.test_name ASC, s.name ASC, q.sequence_number ASC, q.id ASC';
+$questionStatement = $pdo->prepare($questionSql);
+$questionStatement->execute($questionParams);
+$questions = $questionStatement->fetchAll(PDO::FETCH_ASSOC);
+
+$summary = [
+    'questions' => count($questions),
+    'subjects' => count(array_unique(array_map(static fn(array $row): int => (int) $row['subject_id'], $questions))),
+    'tests' => count(array_unique(array_map(static fn(array $row): int => (int) $row['test_id'], $questions))),
+];
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panel</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <title>Manage Questions</title>
     <link rel="stylesheet" href="css/style1.css">
 </head>
-
 <body>
     <div class="main">
-        <?php include "header.php"; ?>
-        <div class="main-content" id="main-content">
-            <header>
-                <h1>Welcome to the Admin Panel</h1>
-            </header>
-            <section>
-                <h2>Show All Questions</h2>
+        <?php include __DIR__ . '/header.php'; ?>
 
-                <!-- Filters for Test and Subject -->
-                <div class="filters mb-3">
-                    <label for="testSelect" onchange="loadSubjects()">Select Test:</label>
-                    <select id="testSelect" class="form-control" onchange="loadSubjects()">
-                        <option value="">Select Test</option>
-                        <?php
-                        if ($tests_result->num_rows > 0) {
-                            while ($test_row = $tests_result->fetch_assoc()) {
-                                echo "<option value='" . htmlspecialchars($test_row['id']) . "'>" . htmlspecialchars($test_row['test_name']) . "</option>";  // test_id as value
-                            }
-                        }
-                        ?>
-                    </select>
-
-                    <label for="subjectSelect">Select Subject:</label>
-                    <select id="subjectSelect" class="form-control" onchange="loadQuestions()">
-                        <option value="">Select Subject</option>
-                    </select>
-
-                    <button class="btn btn-danger mt-2" onclick="deleteAllQuestions()">Delete All Questions</button>
+        <main class="main-content">
+            <section class="page-hero">
+                <div>
+                    <h1>Questions</h1>
+                    <p>Filter by test or subject, then edit the question bank with less clutter and faster review.</p>
+                </div>
+                <div class="action-row">
+                    <a class="btn btn-primary" href="add-questions.php<?= $testId > 0 ? '?test_id=' . $testId . ($subjectId > 0 ? '&subject_id=' . $subjectId : '') : '' ?>">Add Questions</a>
+                    <a class="btn btn-secondary" href="show-subject.php<?= $testId > 0 ? '?test_id=' . $testId : '' ?>">Open Subjects</a>
                 </div>
             </section>
 
-            <div class="main2">
-                <div class="table-responsive">
-                    <table class="table table-bordered table-hover">
-                        <thead class="thead-dark">
-                            <tr>
-                                <th>Question Number</th>
-                                <th>Question Text</th>
-                                <th>Question Image</th>
-                                <th>Options A</th>
-                                <th>Options B</th>
-                                <th>Options C</th>
-                                <th>Options D</th>
-                                <th>Options E</th>
-                                <th>Correct Answer</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="questionsTable">
-                            <!-- Questions will be loaded here via AJAX -->
-                        </tbody>
-                    </table>
+            <?php if ($flash): ?>
+                <div class="flash <?= pafAdminEsc($flash['type']) ?>">
+                    <?= pafAdminEsc($flash['message']) ?>
                 </div>
-            </div>
+            <?php endif; ?>
 
-        </div>
+            <section class="panel-card">
+                <div class="stats-grid">
+                    <div class="metric-card">
+                        <span>Visible Questions</span>
+                        <strong><?= $summary['questions'] ?></strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Visible Subjects</span>
+                        <strong><?= $summary['subjects'] ?></strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Visible Tests</span>
+                        <strong><?= $summary['tests'] ?></strong>
+                    </div>
+                </div>
+            </section>
+
+            <section class="table-card">
+                <div class="panel-head">
+                    <div>
+                        <h2>Question Bank</h2>
+                        <p>Use a smaller, cleaner table and open full edit only when needed.</p>
+                    </div>
+                </div>
+
+                <form method="GET" class="toolbar">
+                    <div class="filters-grid">
+                        <div>
+                            <label class="label" for="test_id">Filter By Test</label>
+                            <select id="test_id" name="test_id">
+                                <option value="">All tests</option>
+                                <?php foreach ($tests as $test): ?>
+                                    <option value="<?= (int) $test['id'] ?>" <?= $testId === (int) $test['id'] ? 'selected' : '' ?>>
+                                        <?= pafAdminEsc($test['test_name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label" for="subject_id">Filter By Subject</label>
+                            <select id="subject_id" name="subject_id">
+                                <option value="">All subjects</option>
+                                <?php foreach ($subjects as $subject): ?>
+                                    <option value="<?= (int) $subject['id'] ?>" <?= $subjectId === (int) $subject['id'] ? 'selected' : '' ?>>
+                                        <?= pafAdminEsc($subject['name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label" for="search">Search</label>
+                            <input id="search" type="search" name="search" value="<?= pafAdminEsc($search) ?>" placeholder="Question text, subject, or test">
+                        </div>
+                    </div>
+                    <div class="toolbar-row">
+                        <div class="muted"><?= count($questions) ?> question(s) found</div>
+                        <div class="action-row">
+                            <button class="btn btn-primary" type="submit">Apply</button>
+                            <a class="btn btn-secondary" href="show-question.php">Reset</a>
+                            <?php if ($subjectId > 0): ?>
+                                <button class="btn btn-danger" type="button" onclick="deleteAllQuestions(<?= $subjectId ?>)">Delete All In Subject</button>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </form>
+
+                <?php if ($questions === []): ?>
+                    <div class="empty-state">No questions matched the current filters.</div>
+                <?php else: ?>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Question</th>
+                                    <th>Subject</th>
+                                    <th>Media</th>
+                                    <th>Correct</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($questions as $row): ?>
+                                    <tr>
+                                        <td>
+                                            <div class="question-summary">
+                                                <strong>Q<?= (int) $row['sequence_number'] ?>. <?= pafAdminEsc($row['question_text']) ?></strong>
+                                                <div class="chip-row">
+                                                    <span class="chip">A: <?= pafAdminEsc($row['option_a']) ?: '-' ?></span>
+                                                    <span class="chip">B: <?= pafAdminEsc($row['option_b']) ?: '-' ?></span>
+                                                    <span class="chip">C: <?= pafAdminEsc($row['option_c']) ?: '-' ?></span>
+                                                    <span class="chip">D: <?= pafAdminEsc($row['option_d']) ?: '-' ?></span>
+                                                    <span class="chip">E: <?= pafAdminEsc($row['option_e']) ?: '-' ?></span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <strong><?= pafAdminEsc($row['subject_name']) ?></strong>
+                                            <div class="muted"><?= pafAdminEsc($row['test_name']) ?></div>
+                                        </td>
+                                        <td>
+                                            <div class="chip-row">
+                                                <?php if (!empty($row['question_image'])): ?>
+                                                    <img class="media-thumb" src="<?= pafAdminEsc($row['question_image']) ?>" alt="Question image">
+                                                <?php endif; ?>
+                                                <?php foreach (['option_a_image', 'option_b_image', 'option_c_image', 'option_d_image', 'option_e_image'] as $imageField): ?>
+                                                    <?php if (!empty($row[$imageField])): ?>
+                                                        <img class="media-thumb" src="<?= pafAdminEsc($row[$imageField]) ?>" alt="Option image">
+                                                    <?php endif; ?>
+                                                <?php endforeach; ?>
+                                                <?php if (empty($row['question_image']) && empty($row['option_a_image']) && empty($row['option_b_image']) && empty($row['option_c_image']) && empty($row['option_d_image']) && empty($row['option_e_image'])): ?>
+                                                    <span class="muted">No media</span>
+                                                <?php endif; ?>
+                                            </div>
+                                        </td>
+                                        <td><span class="chip"><?= pafAdminEsc($row['correct_answer']) ?></span></td>
+                                        <td>
+                                            <div class="table-actions">
+                                                <a class="btn btn-secondary" href="edit_question.php?id=<?= (int) $row['id'] ?>">Edit</a>
+                                                <button class="btn btn-danger" type="button" onclick="deleteQuestion(<?= (int) $row['id'] ?>)">Delete</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </section>
+        </main>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-
     <script>
-        function loadSubjects() {
-            var test_id = $('#testSelect').val();  // Fetch the test_id from the select box
-            console.log('Selected test_id:', test_id);  // Log test_id to the console for debugging
-
-            if (test_id) {  // Ensure that test_id is not empty
-                $('#subjectSelect').html('<option value="">Loading subjects...</option>');
-                $('#questionsTable').html('');  // Clear questions when switching subjects
-
-                $.ajax({
-                    url: 'load_subjects.php',
-                    type: 'POST',
-                    data: { test_id: test_id },  // Send test_id to the server
-                    dataType: 'html',
-                    success: function(data) {
-                        console.log('Subjects data loaded:', data);  
-
-                        if ($.trim(data) !== '') {
-                            $('#subjectSelect').html('<option value="">Select a subject</option>' + data);
-
-                            var subjectCount = $('#subjectSelect option').length;  
-
-                            if (subjectCount === 2) {
-                                var singleSubjectId = $('#subjectSelect option:eq(1)').val();  
-                                $('#subjectSelect').val(singleSubjectId);  
-                                loadQuestions(singleSubjectId);  
-                            } else if (subjectCount > 2) {
-                                $('#subjectSelect').val($('#subjectSelect option:eq(1)').val()).change(); 
-                            }
-                        } else {
-                            console.warn('No subjects found or invalid data returned.');
-                            $('#subjectSelect').html('<option value="">No subjects available</option>');
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('AJAX Error - Status:', status, 'Error:', error);
-                        $('#subjectSelect').html('<option value="">Failed to load subjects</option>');
-                        $('#questionsTable').html('');
-                    }
-                });
-            } else {
-                console.log('No test selected, resetting subject dropdown.');  
-                $('#subjectSelect').html('<option value="">Select a subject</option>');
-                $('#questionsTable').html('');
+        function deleteQuestion(id) {
+            if (!confirm('Delete this question?')) {
+                return;
             }
-        }
 
-        // Function to load questions based on selected subject
-        function loadQuestions(subject_id) {
-            var subject_id = $('#subjectSelect').val();  
-            console.log('Selected subject_id:', subject_id);  
-
-            if (subject_id) {
-                $('#questionsTable').html('<tr><td>Loading questions...</td></tr>');
-
-                $.ajax({
-                    url: 'load_questions.php',  
-                    type: 'POST',
-                    data: { subject_id: subject_id },  
-                    dataType: 'html',
-                    success: function(data) {
-                        console.log('Questions data loaded:', data);  
-                        
-                        if ($.trim(data) !== '') {
-                            $('#questionsTable').html(data);  
-                        } else {
-                            console.warn('No questions found or invalid data returned.');
-                            $('#questionsTable').html('<tr><td>No questions available</td></tr>');
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('AJAX Error - Status:', status, 'Error:', error);
-                        $('#questionsTable').html('<tr><td>Failed to load questions</td></tr>');
-                    }
-                });
-            } else {
-                console.log('No subject selected, resetting questions table.');
-                $('#questionsTable').html('<tr><td>Select a subject to view questions</td></tr>');
-            }
-        }
-
-        // Function to delete all questions for the selected subject
-        function deleteAllQuestions() {
-            var subject_id = $('#subjectSelect').val();  
-            if (subject_id && confirm("Are you sure you want to delete all questions for this subject?")) {
-                $.ajax({
-                    url: 'delete_all_questions.php',
-                    type: 'POST',
-                    data: { subject_id: subject_id },
-                    success: function(response) {
-                        if (response == 'success') {
-                            alert('All questions deleted successfully.');
-                            $('#questionsTable').html('');
-                        } else {
-                            alert('Error deleting questions.');
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('AJAX Error - Status:', status, 'Error:', error);
-                        alert('Failed to delete questions.');
-                    }
-                });
-            }
-        }
-
-        // Enable editing for a question
-        function enableEdit(questionId) {
-            document.getElementById('question_text_' + questionId).removeAttribute('readonly');
-            document.getElementById('option_a_' + questionId).removeAttribute('readonly');
-            document.getElementById('option_b_' + questionId).removeAttribute('readonly');
-            document.getElementById('option_c_' + questionId).removeAttribute('readonly');
-            document.getElementById('option_d_' + questionId).removeAttribute('readonly');
-            document.getElementById('option_e_' + questionId).removeAttribute('readonly'); // Enable Option E
-            document.getElementById('saveBtn_' + questionId).style.display = 'inline';
-        }
-
-        // Save edited question data
-        function saveQuestion(questionId) {
-            const questionText = document.getElementById('question_text_' + questionId).value;
-            const optionA = document.getElementById('option_a_' + questionId).value;
-            const optionB = document.getElementById('option_b_' + questionId).value;
-            const optionC = document.getElementById('option_c_' + questionId).value;
-            const optionD = document.getElementById('option_d_' + questionId).value;
-            const optionE = document.getElementById('option_e_' + questionId).value; // Get Option E value
-            const correctAnswer = document.getElementById('correct_answer_' + questionId).value;
-
-            $.ajax({
-                url: 'save_question.php',
-                type: 'POST',
-                data: {
-                    id: questionId,
-                    question_text: questionText,
-                    option_a: optionA,
-                    option_b: optionB,
-                    option_c: optionC,
-                    option_d: optionD,
-                    option_e: optionE, // Include Option E in the data
-                    correct_answer: correctAnswer
-                },
-                success: function(response) {
-                    if (response == 'success') {
-                        alert('Question updated successfully.');
-                        document.getElementById('question_text_' + questionId).setAttribute('readonly', 'readonly');
-                        document.getElementById('option_a_' + questionId).setAttribute('readonly', 'readonly');
-                        document.getElementById('option_b_' + questionId).setAttribute('readonly', 'readonly');
-                        document.getElementById('option_c_' + questionId).setAttribute('readonly', 'readonly');
-                        document.getElementById('option_d_' + questionId).setAttribute('readonly', 'readonly');
-                        document.getElementById('option_e_' + questionId).setAttribute('readonly', 'readonly'); // Disable Option E
-                        document.getElementById('saveBtn_' + questionId).style.display = 'none';
-                    } else {
-                        alert('Error updating question.');
-                    }
-                },
-                error: function(xhr, status, error) {
-                    console.error('AJAX Error - Status:', status, 'Error:', error);
-                    alert('Failed to update question.');
+            fetch('delete_question.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'id=' + encodeURIComponent(id)
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.status === 'success') {
+                    window.location.reload();
+                    return;
                 }
+
+                alert(data.message || 'Unable to delete question.');
+            })
+            .catch(function() {
+                alert('Unable to delete question.');
+            });
+        }
+
+        function deleteAllQuestions(subjectId) {
+            if (!confirm('Delete all questions in this subject?')) {
+                return;
+            }
+
+            fetch('delete_all_questions.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'subject_id=' + encodeURIComponent(subjectId)
+            })
+            .then(function(response) {
+                return response.text();
+            })
+            .then(function(response) {
+                if (response.trim() === 'success') {
+                    window.location.reload();
+                    return;
+                }
+
+                alert('Unable to delete all subject questions.');
+            })
+            .catch(function() {
+                alert('Unable to delete all subject questions.');
             });
         }
     </script>
 </body>
-
 </html>

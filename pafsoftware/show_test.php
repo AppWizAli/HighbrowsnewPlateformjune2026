@@ -1,120 +1,337 @@
 <?php
-session_start();
+require_once __DIR__ . '/admin_helpers.php';
+require_once __DIR__ . '/db_config.php';
+require_once __DIR__ . '/result_service.php';
 
-// Check if the admin is logged in
-if (!isset($_SESSION['admin_id'])) {
-    header('Location: login.php');
+pafAdminRequireLogin();
+
+$pdo = getPDOConnection();
+$flash = pafAdminPullFlash();
+$reportingReady = true;
+
+try {
+    pafEnsureResultTables($pdo);
+} catch (Throwable $exception) {
+    $reportingReady = false;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
+    $deleteId = (int) $_POST['delete_id'];
+
+    try {
+        $pdo->beginTransaction();
+
+        $subjectStatement = $pdo->prepare('SELECT id FROM subjects WHERE test_id = ?');
+        $subjectStatement->execute([$deleteId]);
+        $subjectIds = array_map('intval', $subjectStatement->fetchAll(PDO::FETCH_COLUMN));
+
+        $questionIds = [];
+        if ($subjectIds !== []) {
+            $subjectPlaceholders = implode(',', array_fill(0, count($subjectIds), '?'));
+            $questionStatement = $pdo->prepare("SELECT id FROM questions WHERE subject_id IN ($subjectPlaceholders)");
+            $questionStatement->execute($subjectIds);
+            $questionIds = array_map('intval', $questionStatement->fetchAll(PDO::FETCH_COLUMN));
+        }
+
+        if ($questionIds !== []) {
+            $questionPlaceholders = implode(',', array_fill(0, count($questionIds), '?'));
+            $deleteAnswers = $pdo->prepare("DELETE FROM answers WHERE question_id IN ($questionPlaceholders)");
+            $deleteAnswers->execute($questionIds);
+        }
+
+        if ($reportingReady) {
+            $deleteQuestionResults = $pdo->prepare('DELETE FROM question_result_details WHERE test_id = ?');
+            $deleteQuestionResults->execute([$deleteId]);
+
+            $deleteSubjectResults = $pdo->prepare('DELETE FROM subject_result_summaries WHERE test_id = ?');
+            $deleteSubjectResults->execute([$deleteId]);
+
+            $deleteOverallResults = $pdo->prepare('DELETE FROM overall_test_results WHERE test_id = ?');
+            $deleteOverallResults->execute([$deleteId]);
+        }
+
+        if ($subjectIds !== []) {
+            $subjectPlaceholders = implode(',', array_fill(0, count($subjectIds), '?'));
+            $deleteLegacyResults = $pdo->prepare("DELETE FROM results WHERE subject_id IN ($subjectPlaceholders)");
+            $deleteLegacyResults->execute($subjectIds);
+
+            $deleteQuestions = $pdo->prepare("DELETE FROM questions WHERE subject_id IN ($subjectPlaceholders)");
+            $deleteQuestions->execute($subjectIds);
+
+            $deleteSubjects = $pdo->prepare("DELETE FROM subjects WHERE id IN ($subjectPlaceholders)");
+            $deleteSubjects->execute($subjectIds);
+        }
+
+        $deleteTest = $pdo->prepare('DELETE FROM tests WHERE id = ?');
+        $deleteTest->execute([$deleteId]);
+
+        $pdo->commit();
+        pafAdminSetFlash('success', 'Test and linked records deleted successfully.');
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        pafAdminSetFlash('error', 'Unable to delete the selected test right now.');
+    }
+
+    header('Location: show_test.php');
     exit();
 }
 
-include 'config.php'; // Replace with your actual DB connection file
+$search = trim((string) ($_GET['search'] ?? ''));
+$openSheet = (string) ($_GET['open'] ?? '');
+$editId = isset($_GET['edit']) ? (int) $_GET['edit'] : 0;
 
-// Delete test if delete_id is set
-if (isset($_POST['delete_id'])) {
-    $delete_id = $_POST['delete_id'];
-    $delete_query = "DELETE FROM tests WHERE id = ?";
-    $stmt = $conn->prepare($delete_query);
-    $stmt->bind_param("i", $delete_id);
-    $stmt->execute();
-    $stmt->close();
+$params = [];
+$sql = 'SELECT
+            t.id,
+            t.test_id,
+            t.test_name,
+            t.date_added,
+            COUNT(DISTINCT s.id) AS subject_count,
+            COUNT(q.id) AS question_count
+        FROM tests t
+        LEFT JOIN subjects s ON s.test_id = t.id
+        LEFT JOIN questions q ON q.subject_id = s.id';
+
+if ($search !== '') {
+    $sql .= ' WHERE t.test_name LIKE ? OR t.test_id LIKE ?';
+    $searchLike = '%' . $search . '%';
+    $params[] = $searchLike;
+    $params[] = $searchLike;
 }
 
-// Fetch tests for displaying in the table
-$tests_query = "SELECT * FROM tests";
-$tests_result = $conn->query($tests_query);
+$sql .= ' GROUP BY t.id, t.test_id, t.test_name, t.date_added
+          ORDER BY t.date_added DESC, t.id DESC';
 
-// Fetch data to edit if edit_id is set
-$edit_data = null;
-if (isset($_GET['edit'])) {
-    $edit_id = $_GET['edit'];
-    $edit_query = "SELECT * FROM tests WHERE id = ?";
-    $stmt = $conn->prepare($edit_query);
-    $stmt->bind_param("i", $edit_id);
-    $stmt->execute();
-    $edit_result = $stmt->get_result();
-    $edit_data = $edit_result->fetch_assoc();
-    $stmt->close();
+$statement = $pdo->prepare($sql);
+$statement->execute($params);
+$tests = $statement->fetchAll(PDO::FETCH_ASSOC);
+
+$editData = null;
+if ($editId > 0) {
+    $editStatement = $pdo->prepare('SELECT id, test_id, test_name, date_added FROM tests WHERE id = ? LIMIT 1');
+    $editStatement->execute([$editId]);
+    $editData = $editStatement->fetch(PDO::FETCH_ASSOC) ?: null;
 }
+
+$summary = [
+    'tests' => count($tests),
+    'subjects' => array_sum(array_map(static fn(array $row): int => (int) $row['subject_count'], $tests)),
+    'questions' => array_sum(array_map(static fn(array $row): int => (int) $row['question_count'], $tests)),
+];
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panel - Manage Tests</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <title>Manage Tests</title>
     <link rel="stylesheet" href="css/style1.css">
 </head>
 <body>
     <div class="main">
-        <?php include "header.php"; ?>
-        <div class="main-content" id="main-content">
-            <header>
-                <h1>Manage Tests</h1>
-            </header>
-            
-            <!-- List of tests -->
-            <section>
-                <h2 class="mt-4">All Tests</h2>
-                <div class="container mt-4">
-                    <table class="table table-bordered table-hover">
-                        <thead class="thead-dark">
-                            <tr>
-                                <th>Test ID</th>
-                                <th>Test Name</th>
-                                <th>Date Added</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php
-                            if ($tests_result && $tests_result->num_rows > 0) {
-                                while ($test_row = $tests_result->fetch_assoc()) {
-                                    echo "<tr>";
-                                    echo "<td>" . htmlspecialchars($test_row['test_id']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($test_row['test_name']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($test_row['date_added']) . "</td>";
-                                    echo "<td>";
-                                    echo "<form method='POST' style='display:inline-block;' action=''>";
-                                    echo "<input type='hidden' name='delete_id' value='" . htmlspecialchars($test_row['id']) . "'>";
-                                    echo "<button type='submit' class='btn btn-danger btn-sm'>Delete</button>";
-                                    echo "</form> ";
-                                    echo "<a href='?edit=" . htmlspecialchars($test_row['id']) . "' class='btn btn-primary btn-sm'>Edit</a>";
-                                    echo "</td>";
-                                    echo "</tr>";
-                                }
-                            } else {
-                                echo "<tr><td colspan='4' class='text-center'>No tests found</td></tr>";
-                            }
-                            ?>
-                        </tbody>
-                    </table>
+        <?php include __DIR__ . '/header.php'; ?>
+
+        <main class="main-content">
+            <section class="page-hero">
+                <div>
+                    <h1>Tests</h1>
+                    <p>One place to add, review, edit, and clean up all tests.</p>
+                </div>
+                <div class="action-row">
+                    <button class="btn btn-primary" type="button" onclick="openSheet('addTestSheet')">Add Test</button>
+                    <a class="btn btn-secondary" href="show-subject.php">Open Subjects</a>
                 </div>
             </section>
 
-            <?php if ($edit_data) : ?>
-            <!-- Edit Test Form -->
-            <div class="edit-form container mt-5">
-                <h3>Edit Test</h3>
-                <form method="POST" action="update_test.php">
-                    <input type="hidden" name="edit_id" value="<?php echo htmlspecialchars($edit_data['id']); ?>">
-                    <div class="form-group">
-                        <label for="edit_test_name">Test Name</label>
-                        <input type="text" name="edit_test_name" id="edit_test_name" class="form-control" value="<?php echo htmlspecialchars($edit_data['test_name']); ?>" required>
+            <?php if ($flash): ?>
+                <div class="flash <?= pafAdminEsc($flash['type']) ?>">
+                    <?= pafAdminEsc($flash['message']) ?>
+                </div>
+            <?php endif; ?>
+
+            <section class="panel-card">
+                <div class="stats-grid">
+                    <div class="metric-card">
+                        <span>Visible Tests</span>
+                        <strong><?= $summary['tests'] ?></strong>
                     </div>
-                    <div class="form-group">
-                        <label for="edit_date_added">Date Added</label>
-                        <input type="date" name="edit_date_added" id="edit_date_added" class="form-control" value="<?php echo htmlspecialchars($edit_data['date_added']); ?>" required>
+                    <div class="metric-card">
+                        <span>Linked Subjects</span>
+                        <strong><?= $summary['subjects'] ?></strong>
                     </div>
-                    <button type="submit" class="btn btn-success">Update Test</button>
+                    <div class="metric-card">
+                        <span>Total MCQs</span>
+                        <strong><?= $summary['questions'] ?></strong>
+                    </div>
+                </div>
+            </section>
+
+            <section class="table-card">
+                <div class="panel-head">
+                    <div>
+                        <h2>Test Directory</h2>
+                        <p>Search by name or test code, then manage records from one table.</p>
+                    </div>
+                </div>
+
+                <form method="GET" class="toolbar">
+                    <div class="filters-grid">
+                        <div>
+                            <label class="label" for="search">Search</label>
+                            <input id="search" type="search" name="search" value="<?= pafAdminEsc($search) ?>" placeholder="Test name or code">
+                        </div>
+                    </div>
+                    <div class="toolbar-row">
+                        <div class="muted"><?= count($tests) ?> test(s) found</div>
+                        <div class="action-row">
+                            <button class="btn btn-primary" type="submit">Apply</button>
+                            <a class="btn btn-secondary" href="show_test.php">Reset</a>
+                        </div>
+                    </div>
                 </form>
+
+                <?php if ($tests === []): ?>
+                    <div class="empty-state">No tests match the current search.</div>
+                <?php else: ?>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Test</th>
+                                    <th>Date Added</th>
+                                    <th>Subjects</th>
+                                    <th>Questions</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($tests as $row): ?>
+                                    <tr>
+                                        <td>
+                                            <strong><?= pafAdminEsc($row['test_name']) ?></strong>
+                                            <div class="muted">Code: <?= pafAdminEsc($row['test_id']) ?></div>
+                                        </td>
+                                        <td><?= pafAdminEsc($row['date_added']) ?></td>
+                                        <td><?= (int) $row['subject_count'] ?></td>
+                                        <td><?= (int) $row['question_count'] ?></td>
+                                        <td>
+                                            <div class="table-actions">
+                                                <a class="btn btn-secondary" href="show-subject.php?test_id=<?= (int) $row['id'] ?>">Subjects</a>
+                                                <a class="btn btn-secondary" href="show_test.php?edit=<?= (int) $row['id'] ?>">Edit</a>
+                                                <form method="POST" onsubmit="return confirm('Delete this test and all linked data?');">
+                                                    <input type="hidden" name="delete_id" value="<?= (int) $row['id'] ?>">
+                                                    <button class="btn btn-danger" type="submit">Delete</button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </section>
+        </main>
+    </div>
+
+    <div class="sheet-backdrop" id="addTestSheet">
+        <div class="sheet">
+            <div class="sheet-head">
+                <div>
+                    <h3>Add Test</h3>
+                    <p class="helper-text">Create a new test without leaving the listing page.</p>
+                </div>
+                <button class="btn btn-ghost" type="button" onclick="closeSheet('addTestSheet')">Close</button>
             </div>
+            <form class="sheet-form" method="POST" action="insert_test.php">
+                <div>
+                    <label class="label" for="test_id">Test Code</label>
+                    <input id="test_id" type="text" name="test_id" required>
+                </div>
+                <div>
+                    <label class="label" for="test_name">Test Name</label>
+                    <input id="test_name" type="text" name="test_name" required>
+                </div>
+                <div>
+                    <label class="label" for="date_added">Date Added</label>
+                    <input id="date_added" type="date" name="date_added" value="<?= date('Y-m-d') ?>" required>
+                </div>
+                <div class="action-row">
+                    <button class="btn btn-primary" type="submit">Save Test</button>
+                    <button class="btn btn-secondary" type="button" onclick="closeSheet('addTestSheet')">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="sheet-backdrop" id="editTestSheet">
+        <div class="sheet">
+            <div class="sheet-head">
+                <div>
+                    <h3>Edit Test</h3>
+                    <p class="helper-text">Update the visible test details only.</p>
+                </div>
+                <a class="btn btn-ghost" href="show_test.php">Close</a>
+            </div>
+            <?php if ($editData): ?>
+                <form class="sheet-form" method="POST" action="update_test.php">
+                    <input type="hidden" name="edit_id" value="<?= (int) $editData['id'] ?>">
+                    <div>
+                        <label class="label" for="edit_test_code">Test Code</label>
+                        <input id="edit_test_code" type="text" value="<?= pafAdminEsc($editData['test_id']) ?>" disabled>
+                    </div>
+                    <div>
+                        <label class="label" for="edit_test_name">Test Name</label>
+                        <input id="edit_test_name" type="text" name="edit_test_name" value="<?= pafAdminEsc($editData['test_name']) ?>" required>
+                    </div>
+                    <div>
+                        <label class="label" for="edit_date_added">Date Added</label>
+                        <input id="edit_date_added" type="date" name="edit_date_added" value="<?= pafAdminEsc($editData['date_added']) ?>" required>
+                    </div>
+                    <div class="action-row">
+                        <button class="btn btn-primary" type="submit">Update Test</button>
+                        <a class="btn btn-secondary" href="show_test.php">Cancel</a>
+                    </div>
+                </form>
+            <?php else: ?>
+                <div class="empty-state">The requested test could not be loaded.</div>
             <?php endif; ?>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.7.1.js" integrity="sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4=" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+    <script>
+        function openSheet(id) {
+            const sheet = document.getElementById(id);
+            if (sheet) {
+                sheet.classList.add('is-open');
+            }
+        }
+
+        function closeSheet(id) {
+            const sheet = document.getElementById(id);
+            if (sheet) {
+                sheet.classList.remove('is-open');
+            }
+        }
+
+        document.querySelectorAll('.sheet-backdrop').forEach(function(backdrop) {
+            backdrop.addEventListener('click', function(event) {
+                if (event.target === backdrop) {
+                    backdrop.classList.remove('is-open');
+                }
+            });
+        });
+
+        <?php if ($openSheet === 'add'): ?>
+        openSheet('addTestSheet');
+        <?php endif; ?>
+
+        <?php if ($editData): ?>
+        openSheet('editTestSheet');
+        <?php endif; ?>
+    </script>
 </body>
 </html>

@@ -1,17 +1,19 @@
 <?php
 
-session_start();
-
-if (!isset($_SESSION['admin_id'])) {
-    header('Location: login.php');
-    exit();
-}
-
+require_once __DIR__ . '/admin_helpers.php';
 require_once __DIR__ . '/db_config.php';
 require_once __DIR__ . '/result_service.php';
 
+pafAdminRequireLogin();
+
 $pdo = getPDOConnection();
-pafEnsureResultTables($pdo);
+$reportingReady = true;
+
+try {
+    pafEnsureResultTables($pdo);
+} catch (Throwable $exception) {
+    $reportingReady = false;
+}
 
 $search = trim((string) ($_GET['search'] ?? ''));
 $testId = isset($_GET['test_id']) && (int) $_GET['test_id'] > 0 ? (int) $_GET['test_id'] : 0;
@@ -22,74 +24,91 @@ $subjects = $testId > 0 ? pafFetchTestSubjects($pdo, $testId) : $pdo->query(
     'SELECT id, name, test_id FROM subjects ORDER BY name ASC, id ASC'
 )->fetchAll(PDO::FETCH_ASSOC);
 
-$params = [];
-if ($testId > 0) {
-    $sql = 'SELECT DISTINCT
-                u.id,
-                u.name,
-                u.father_name,
-                u.picture,
-                u.group_name,
-                o.test_id,
-                t.test_name,
-                o.overall_percentage,
-                o.result_status,
-                o.merit_position,
-                o.completed_at
-            FROM useres u
-            LEFT JOIN overall_test_results o ON o.user_id = u.id AND o.test_id = ?
-            LEFT JOIN tests t ON t.id = o.test_id';
-    $params[] = $testId;
+$students = [];
+if ($reportingReady) {
+    $params = [];
+    if ($testId > 0) {
+        $sql = 'SELECT DISTINCT
+                    u.id,
+                    u.name,
+                    u.father_name,
+                    u.picture,
+                    u.group_name,
+                    o.test_id,
+                    t.test_name,
+                    o.overall_percentage,
+                    o.result_status,
+                    o.merit_position,
+                    o.completed_at
+                FROM useres u
+                LEFT JOIN overall_test_results o ON o.user_id = u.id AND o.test_id = ?
+                LEFT JOIN tests t ON t.id = o.test_id';
+        $params[] = $testId;
+    } else {
+        $sql = 'SELECT
+                    u.id,
+                    u.name,
+                    u.father_name,
+                    u.picture,
+                    u.group_name,
+                    o.test_id,
+                    t.test_name,
+                    o.overall_percentage,
+                    o.result_status,
+                    o.merit_position,
+                    o.completed_at
+                FROM useres u
+                LEFT JOIN overall_test_results o
+                    ON o.id = (
+                        SELECT o2.id
+                        FROM overall_test_results o2
+                        WHERE o2.user_id = u.id
+                        ORDER BY o2.completed_at DESC, o2.id DESC
+                        LIMIT 1
+                    )
+                LEFT JOIN tests t ON t.id = o.test_id';
+    }
+
+    if ($subjectId > 0) {
+        $sql .= ' LEFT JOIN subject_result_summaries srs ON srs.user_id = u.id AND srs.subject_id = ?';
+        $params[] = $subjectId;
+    }
+
+    $conditions = [];
+    if ($search !== '') {
+        $conditions[] = '(u.id LIKE ? OR u.name LIKE ? OR u.father_name LIKE ? OR u.group_name LIKE ?)';
+        $searchLike = '%' . $search . '%';
+        array_push($params, $searchLike, $searchLike, $searchLike, $searchLike);
+    }
+
+    if ($subjectId > 0) {
+        $conditions[] = 'srs.subject_id IS NOT NULL';
+    }
+
+    if ($conditions !== []) {
+        $sql .= ' WHERE ' . implode(' AND ', $conditions);
+    }
+
+    $sql .= ' ORDER BY u.name ASC, u.id ASC';
+
+    $statement = $pdo->prepare($sql);
+    $statement->execute($params);
+    $students = $statement->fetchAll(PDO::FETCH_ASSOC);
 } else {
-    $sql = 'SELECT
-                u.id,
-                u.name,
-                u.father_name,
-                u.picture,
-                u.group_name,
-                o.test_id,
-                t.test_name,
-                o.overall_percentage,
-                o.result_status,
-                o.merit_position,
-                o.completed_at
-            FROM useres u
-            LEFT JOIN overall_test_results o
-                ON o.id = (
-                    SELECT o2.id
-                    FROM overall_test_results o2
-                    WHERE o2.user_id = u.id
-                    ORDER BY o2.completed_at DESC, o2.id DESC
-                    LIMIT 1
-                )
-            LEFT JOIN tests t ON t.id = o.test_id';
+    $fallbackSql = 'SELECT id, name, father_name, picture, group_name, NULL AS test_id, NULL AS test_name,
+                           NULL AS overall_percentage, NULL AS result_status, NULL AS merit_position, NULL AS completed_at
+                    FROM useres';
+    $fallbackParams = [];
+    if ($search !== '') {
+        $fallbackSql .= ' WHERE (id LIKE ? OR name LIKE ? OR father_name LIKE ? OR group_name LIKE ?)';
+        $searchLike = '%' . $search . '%';
+        array_push($fallbackParams, $searchLike, $searchLike, $searchLike, $searchLike);
+    }
+    $fallbackSql .= ' ORDER BY name ASC, id ASC';
+    $fallbackStatement = $pdo->prepare($fallbackSql);
+    $fallbackStatement->execute($fallbackParams);
+    $students = $fallbackStatement->fetchAll(PDO::FETCH_ASSOC);
 }
-
-if ($subjectId > 0) {
-    $sql .= ' LEFT JOIN subject_result_summaries srs ON srs.user_id = u.id AND srs.subject_id = ?';
-    $params[] = $subjectId;
-}
-
-$conditions = [];
-if ($search !== '') {
-    $conditions[] = '(u.id LIKE ? OR u.name LIKE ? OR u.father_name LIKE ? OR u.group_name LIKE ?)';
-    $searchLike = '%' . $search . '%';
-    array_push($params, $searchLike, $searchLike, $searchLike, $searchLike);
-}
-
-if ($subjectId > 0) {
-    $conditions[] = 'srs.subject_id IS NOT NULL';
-}
-
-if ($conditions !== []) {
-    $sql .= ' WHERE ' . implode(' AND ', $conditions);
-}
-
-$sql .= ' ORDER BY u.name ASC, u.id ASC';
-
-$statement = $pdo->prepare($sql);
-$statement->execute($params);
-$students = $statement->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -110,7 +129,32 @@ $students = $statement->fetchAll(PDO::FETCH_ASSOC);
                     <h1>Students</h1>
                     <p>Search students, filter by test or subject, and open detailed reports.</p>
                 </div>
-                <a class="btn btn-secondary" href="admin1_pannel.php">Back To Dashboard</a>
+                <div class="action-row">
+                    <a class="btn btn-secondary" href="admin1_pannel.php">Back To Dashboard</a>
+                </div>
+            </section>
+
+            <?php if (!$reportingReady): ?>
+                <div class="flash warning">
+                    Detailed report tables are not available right now. Student records still load, but full result reports may be limited.
+                </div>
+            <?php endif; ?>
+
+            <section class="panel-card">
+                <div class="stats-grid">
+                    <div class="metric-card">
+                        <span>Visible Students</span>
+                        <strong><?= count($students) ?></strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Tests Available</span>
+                        <strong><?= count($tests) ?></strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Subjects Available</span>
+                        <strong><?= count($subjects) ?></strong>
+                    </div>
+                </div>
             </section>
 
             <section class="panel-card">
@@ -187,15 +231,7 @@ $students = $statement->fetchAll(PDO::FETCH_ASSOC);
                                 <?php foreach ($students as $student): ?>
                                     <?php
                                     $picture = trim((string) ($student['picture'] ?? ''));
-                                    if ($picture === '') {
-                                        $picture = 'data:image/svg+xml;utf8,' . rawurlencode(
-                                            '<svg xmlns="http://www.w3.org/2000/svg" width="46" height="46" viewBox="0 0 46 46">
-                                                <rect width="46" height="46" rx="14" fill="#e8eef5"/>
-                                                <circle cx="23" cy="17" r="9" fill="#9db1c7"/>
-                                                <path d="M9 39c2-8 8-13 14-13s12 5 14 13" fill="#9db1c7"/>
-                                            </svg>'
-                                        );
-                                    }
+                                    $picture = pafAdminAvatar($picture, 50);
                                     ?>
                                     <tr>
                                         <td>
