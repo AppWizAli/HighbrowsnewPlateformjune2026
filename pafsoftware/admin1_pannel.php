@@ -88,6 +88,8 @@ $systemNotes = [
                     <a class="btn btn-primary" href="show_test.php?open=add">New Test</a>
                     <a class="btn btn-secondary" href="show-subject.php?open=add">New Subject</a>
                     <a class="btn btn-secondary" href="show-question.php">Question Bank</a>
+                    <a class="btn btn-secondary" href="register.php">Student Register</a>
+                    <a class="btn btn-secondary" href="userlogin.php" target="_blank" rel="noopener noreferrer">Student Login</a>
                     <a class="btn btn-ghost" href="logout.php">Logout</a>
                 </div>
             </section>
@@ -204,6 +206,16 @@ $systemNotes = [
                                 <span><?= $reportingReady ? 'View detailed subject and question reports in Students.' : 'Reporting storage still needs attention.' ?></span>
                             </div>
                             <a class="btn btn-secondary" href="show-users.php">Open</a>
+                        </div>
+                        <div class="subtle-list-item">
+                            <div>
+                                <strong>Student access</strong>
+                                <span>Open registration here or launch student login in a separate tab.</span>
+                            </div>
+                            <div class="action-row">
+                                <a class="btn btn-secondary" href="register.php">Register</a>
+                                <a class="btn btn-secondary" href="userlogin.php" target="_blank" rel="noopener noreferrer">Login</a>
+                            </div>
                         </div>
                     </div>
                 </div>
