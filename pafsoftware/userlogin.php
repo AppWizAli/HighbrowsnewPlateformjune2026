@@ -8,7 +8,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     $sql = "SELECT * FROM useres WHERE id = ? AND name = ?";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ss", $id, $name);
+    $stmt->bind_param("is", $id, $name);
     $stmt->execute();
     $result = $stmt->get_result();
 
@@ -16,7 +16,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $user = $result->fetch_assoc();
         $_SESSION['user'] = $user;
         header("Location: index.php");
-        exit();
     } else {
        $error="Invalid ID or Name.";
     }

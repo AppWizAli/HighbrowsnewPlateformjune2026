@@ -1,339 +1,231 @@
 <?php
-require_once __DIR__ . '/db_config.php';
-require_once __DIR__ . '/result_service.php';
+include "config.php"; // Ensure your DB connection is set up here
+require 'vendor/autoload.php'; // Assuming TCPDF is installed via Composer
 
-$pdo = getPDOConnection();
+// Initialize TCPDF
+$pdf = new TCPDF();
 
-function pafEscResult($value): string
+// Function to calculate and store results
+function calculateAndStoreResults($conn)
 {
-    return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+    // Fetch all answers
+    $answers = [];
+    $answerResult = $conn->query("SELECT user_id, question_id, answer, is_correct FROM answers");
+
+    while ($row = $answerResult->fetch_assoc()) {
+        $answers[] = $row;
+    }
+
+    // Fetch all questions with their subject IDs and correct answers
+    $questions = [];
+    $questionResult = $conn->query("SELECT id AS question_id, subject_id, correct_answer FROM questions");
+
+    while ($row = $questionResult->fetch_assoc()) {
+        $questions[] = $row;
+    }
+
+    // Prepare data structures for calculating results
+    $resultsData = [];
+    $questionsMap = [];
+
+    // Map questions to their subject IDs and correct answers
+    foreach ($questions as $question) {
+        $questionsMap[$question['question_id']] = [
+            'subject_id' => $question['subject_id'],
+            'correct_answer' => $question['correct_answer']
+        ];
+    }
+
+    // Calculate results
+    foreach ($answers as $answer) {
+        $userId = $answer['user_id'];
+        $questionId = $answer['question_id'];
+        $userAnswer = $answer['answer'];
+
+        if (!isset($questionsMap[$questionId])) {
+            continue; // Skip if question ID not found
+        }
+
+        $subjectId = $questionsMap[$questionId]['subject_id'];
+        $correctAnswer = $questionsMap[$questionId]['correct_answer'];
+
+        if (!isset($resultsData[$userId])) {
+            $resultsData[$userId] = [
+                'total_correct_answers' => 0,
+                'total_questions' => 0,
+                'subject_data' => []
+            ];
+        }
+
+        if (!isset($resultsData[$userId]['subject_data'][$subjectId])) {
+            $resultsData[$userId]['subject_data'][$subjectId] = [
+                'correct_answers' => 0,
+                'total_questions' => 0
+            ];
+        }
+
+        // Check if the user's answer matches the correct answer
+        if ($userAnswer === $correctAnswer) {
+            $resultsData[$userId]['total_correct_answers'] += 1;
+            $resultsData[$userId]['subject_data'][$subjectId]['correct_answers'] += 1;
+        }
+
+        $resultsData[$userId]['total_questions'] += 1;
+        $resultsData[$userId]['subject_data'][$subjectId]['total_questions'] += 1;
+    }
+
+    // Insert or update results only if they don't already exist
+    foreach ($resultsData as $userId => $data) {
+        foreach ($data['subject_data'] as $subjectId => $subjectData) {
+            // Check if result already exists for this user and subject
+            $stmt = $conn->prepare("SELECT COUNT(*) as count FROM results WHERE user_id = ? AND subject_id = ?");
+            $stmt->bind_param("si", $userId, $subjectId); // Bind user_id as string
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $row = $result->fetch_assoc();
+            $existingResult = $row['count'];
+            $stmt->close();
+
+            // If result doesn't exist, insert it
+            if ($existingResult == 0) {
+                $correctAnswers = $subjectData['correct_answers'];
+                $totalQuestions = $subjectData['total_questions'];
+                $percentage = ($totalQuestions > 0) ? ($correctAnswers / $totalQuestions) * 100 : 0;
+
+                $stmt = $conn->prepare("INSERT INTO results (user_id, subject_id, correct_answers, total_questions, percentage) VALUES (?, ?, ?, ?, ?)");
+                $stmt->bind_param("siidd", $userId, $subjectId, $correctAnswers, $totalQuestions, $percentage); // Bind user_id as string
+                $stmt->execute();
+                $stmt->close();
+            }
+        }
+    }
 }
 
-$userId = isset($_GET['user_id']) ? pafNormaliseUserId($_GET['user_id']) : '';
-$testId = isset($_GET['test_id']) && (int) $_GET['test_id'] > 0 ? (int) $_GET['test_id'] : null;
+// Call the function if user_id is set
+if (isset($_GET['user_id'])) {
+    $userId = $_GET['user_id'];
+    
 
-if ($userId === '') {
-    echo '<p>User ID not provided.</p>';
-    exit();
-}
+    // Usage example
+    calculateAndStoreResults($conn);
 
-$userStatement = $pdo->prepare('SELECT id, name, father_name, picture, group_name FROM useres WHERE id = ? LIMIT 1');
-$userStatement->execute([$userId]);
-$user = $userStatement->fetch();
+    // Fetch user information
+    $userSql = "SELECT id, name, father_name, picture FROM useres WHERE id = ?";
+    $stmt = $conn->prepare($userSql);
+    $stmt->bind_param("s", $userId); // Bind user_id as string
+    $stmt->execute();
+    $userResult = $stmt->get_result();
+    $user = $userResult->fetch_assoc();
 
-if (!$user) {
-    echo '<p>User not found.</p>';
-    exit();
-}
+    if ($user) {
+        // Fetch user results and join with subjects table to get subject name
+        $resultSql = "SELECT s.name AS subject_name, r.correct_answers, r.total_questions, r.percentage 
+                      FROM results r
+                      JOIN subjects s ON r.subject_id = s.id 
+                      WHERE r.user_id = ?";
+        $stmt = $conn->prepare($resultSql);
+        $stmt->bind_param("s", $userId); // Bind user_id as string
+        $stmt->execute();
+        $resultData = $stmt->get_result();
 
-$resultTree = pafGetUserResultTree($pdo, $userId, $testId);
-$answerDetails = pafFetchAnswerReviewData($pdo, $userId, $testId);
+        // Initialize total variables
+        $subjectResults = [];
+        $totalCorrect = 0;
+        $totalQuestions = 0;
 
-if ($resultTree['tests'] === []) {
-    echo '<p>No saved results found for this student yet.</p>';
-    exit();
-}
+        // Collect results per subject
+        while ($row = $resultData->fetch_assoc()) {
+            $subjectResults[$row['subject_name']] = [
+                'correct_answers' => $row['correct_answers'],
+                'total_questions' => $row['total_questions'],
+                'percentage' => $row['percentage']
+            ];
 
-$detailMap = [];
-foreach ($answerDetails as $testBlock) {
-    $detailMap[$testBlock['test_id']] = [];
-    foreach ($testBlock['subjects'] as $subjectBlock) {
-        $detailMap[$testBlock['test_id']][$subjectBlock['subject_id']] = $subjectBlock['questions'];
+            // Calculate overall totals
+            $totalCorrect += $row['correct_answers'];
+            $totalQuestions += $row['total_questions'];
+        }
+
+        // Calculate overall percentage
+        $overallPercentage = ($totalQuestions > 0) ? ($totalCorrect / $totalQuestions) * 100 : 0;
+
+        // Create HTML for result display
+        $resultHtml = "<div class='container'>
+                       <p><strong>User ID:</strong> {$user['id']}</p>
+                       <p><strong>Name:</strong> {$user['name']}</p>
+                       <p><strong>Father's Name:</strong> {$user['father_name']}</p>";
+        if (!empty($user['picture'])) {
+            $resultHtml .= "<img src='{$user['picture']}' width='100' height='100' alt='User Image' class='img-thumbnail'>";
+        }
+        $resultHtml .= "<h3>Results:</h3>
+                        <table class='table table-bordered'>
+                        <thead><tr><th>Subject</th><th>Correct Answers</th><th>Total Questions</th><th>Percentage</th></tr></thead>
+                        <tbody>";
+
+        // Populate results for each subject
+        foreach ($subjectResults as $subject => $results) {
+            $resultHtml .= "<tr>
+                            <td>{$subject}</td>
+                            <td>{$results['correct_answers']}</td>
+                            <td>{$results['total_questions']}</td>
+                            <td>{$results['percentage']}%</td>
+                            </tr>";
+        }
+        $resultHtml .= "</tbody></table>";
+
+        // Append total result information to the HTML
+        $resultHtml .= "<h4>Total Result:</h4>
+                        <p><strong>Total Correct Answers:</strong> $totalCorrect</p>
+                        <p><strong>Total Questions:</strong> $totalQuestions</p>
+                        <p><strong>Overall Percentage:</strong> " . round($overallPercentage, 2) . "%</p></div>";
+
+        // Output result table for AJAX
+        echo $resultHtml;
+
+        // Generate PDF with TCPDF
+        $pdf->AddPage();
+        $pdf->SetFont('helvetica', '', 12);
+
+        // Set the width for the left column (text)
+        $leftColumnWidth = 100; // Adjust this width as needed
+        $pdf->Cell($leftColumnWidth, 10, "User Result", 0, 1, 'C');
+        $pdf->Ln();
+
+        // User ID, Name, Father's Name on the left
+        $pdf->Cell($leftColumnWidth, 10, "User ID: " . $user['id'], 0, 1);
+        $pdf->Cell($leftColumnWidth, 10, "Name: " . $user['name'], 0, 1);
+        $pdf->Cell($leftColumnWidth, 10, "Father's Name: " . $user['father_name'], 0, 1);
+
+        // Move to the right for the image
+        $pdf->Cell(0, 10, '', 0, 1); // Empty cell to create space
+        if (!empty($user['picture'])) {
+            // Add Picture to PDF on the right side
+            $pdf->Image($user['picture'], $pdf->getX() + 2, $pdf->getY() - 10, 30); // Adjust position as needed
+        }
+
+        $pdf->Ln(20);
+
+        // Add result table to PDF
+        $pdf->writeHTML($resultHtml, true, false, true, false, '');
+
+        // Ensure the directory exists for saving PDFs
+        $resultsDir = __DIR__ . '/results'; // Full path to the results directory
+        if (!is_dir($resultsDir)) {
+            mkdir($resultsDir, 0777, true); // Create the directory if it doesn't exist
+        }
+
+        // Output the PDF to a file
+        $fileName = "$resultsDir/user_result_" . $user['id'] . ".pdf";
+        $pdf->Output($fileName, 'F'); // Save the file
+
+        // Provide a download link and Check Answers button
+        echo "<div class='mt-3'>
+                <a href='results/user_result_" . $user['id'] . ".pdf' class='btn btn-primary' style='padding: 10px 20px; background-color: green; color: white; border-radius: 5px; text-decoration:none; margin-right: 10px;'>Download PDF</a>
+                <button type='button' onclick='window.parent.showAnswerDetails(\"" . $user['id'] . "\")' class='btn btn-info' style='padding: 10px 20px; margin-top:2rem; background-color: #17a2b8; color: white; border: none; border-radius: 5px; cursor: pointer;'>Check Answers</button>
+              </div>";
+
+    } else {
+        echo "<p>User not found.</p>";
     }
 }
 ?>
-<style>
-    .result-shell {
-        font-family: 'Outfit', sans-serif;
-        color: #122033;
-    }
-
-    .result-shell * {
-        box-sizing: border-box;
-    }
-
-    .student-card,
-    .result-card {
-        border: 1px solid #d7e2ee;
-        border-radius: 20px;
-        background: #fff;
-        box-shadow: 0 16px 40px rgba(18, 32, 51, 0.08);
-        padding: 20px;
-        margin-bottom: 18px;
-    }
-
-    .student-card {
-        display: grid;
-        grid-template-columns: 86px 1fr;
-        gap: 18px;
-        align-items: center;
-    }
-
-    .student-card img {
-        width: 86px;
-        height: 86px;
-        object-fit: cover;
-        border-radius: 18px;
-        border: 1px solid #d7e2ee;
-    }
-
-    .student-grid,
-    .summary-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 12px;
-        margin-top: 16px;
-    }
-
-    .summary-box {
-        border-radius: 16px;
-        background: #f8fbff;
-        border: 1px solid #d7e2ee;
-        padding: 14px;
-    }
-
-    .summary-box span {
-        display: block;
-        color: #62748b;
-        margin-bottom: 8px;
-        font-size: 0.88rem;
-    }
-
-    .test-heading {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-        flex-wrap: wrap;
-        margin-bottom: 16px;
-    }
-
-    .chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        border-radius: 999px;
-        background: #eaf3ff;
-        color: #0d6efd;
-        padding: 8px 12px;
-        font-weight: 700;
-    }
-
-    table.result-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 14px;
-    }
-
-    .result-table th,
-    .result-table td {
-        padding: 12px 10px;
-        border-bottom: 1px solid #e3ebf4;
-        text-align: left;
-        vertical-align: top;
-    }
-
-    .result-table th {
-        color: #51657c;
-        font-size: 0.88rem;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-    }
-
-    .details-block {
-        margin-top: 18px;
-    }
-
-    .details-block details {
-        border: 1px solid #d7e2ee;
-        border-radius: 16px;
-        padding: 14px 16px;
-        background: #fbfdff;
-        margin-bottom: 12px;
-    }
-
-    .details-block summary {
-        cursor: pointer;
-        font-weight: 700;
-    }
-
-    .question-review {
-        margin-top: 14px;
-        border: 1px solid #e2eaf3;
-        border-radius: 16px;
-        background: #fff;
-        padding: 14px;
-    }
-
-    .question-review.correct {
-        border-left: 5px solid #1f9d5b;
-    }
-
-    .question-review.wrong {
-        border-left: 5px solid #dc3545;
-    }
-
-    .question-review p {
-        margin: 0 0 10px;
-        line-height: 1.6;
-    }
-
-    .question-tags {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        margin-top: 8px;
-    }
-
-    .question-tags span {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 7px 10px;
-        border-radius: 999px;
-        font-size: 0.85rem;
-        font-weight: 700;
-    }
-
-    .tag-correct {
-        background: #daf6e6;
-        color: #0c6a3d;
-    }
-
-    .tag-wrong {
-        background: #ffe2e6;
-        color: #a62633;
-    }
-
-    .tag-review {
-        background: #fff3c3;
-        color: #7b5b00;
-    }
-
-    .tag-skip {
-        background: #edf2f7;
-        color: #536579;
-    }
-</style>
-
-<div class="result-shell">
-    <div class="student-card">
-        <?php $picture = trim((string) ($user['picture'] ?? '')) ?: 'images/default-user.png'; ?>
-        <img src="<?= pafEscResult($picture) ?>" alt="Student picture">
-        <div>
-            <h3 style="margin:0;"><?= pafEscResult($user['name']) ?></h3>
-            <div style="color:#62748b; margin-top:6px;">ID: <?= pafEscResult($user['id']) ?></div>
-            <div style="color:#62748b; margin-top:4px;">Father Name: <?= pafEscResult($user['father_name']) ?></div>
-            <div style="color:#62748b; margin-top:4px;">Group: <?= pafEscResult($user['group_name']) ?></div>
-
-            <div class="student-grid">
-                <div class="summary-box">
-                    <span>Total Correct</span>
-                    <strong><?= (int) $resultTree['overall']['correct_answers'] ?></strong>
-                </div>
-                <div class="summary-box">
-                    <span>Total Questions</span>
-                    <strong><?= (int) $resultTree['overall']['total_questions'] ?></strong>
-                </div>
-                <div class="summary-box">
-                    <span>Overall Percentage</span>
-                    <strong><?= number_format((float) $resultTree['overall']['percentage'], 2) ?>%</strong>
-                </div>
-                <div class="summary-box">
-                    <span>Subjects Completed</span>
-                    <strong><?= (int) $resultTree['overall']['subjects'] ?></strong>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <?php foreach ($resultTree['tests'] as $test): ?>
-        <div class="result-card">
-            <div class="test-heading">
-                <div>
-                    <h3 style="margin:0;"><?= pafEscResult($test['test_name']) ?></h3>
-                    <div style="color:#62748b; margin-top:6px;">Test-wise result with subject breakdown and answer detail</div>
-                </div>
-                <span class="chip"><i class="fa-solid fa-chart-column"></i> <?= number_format((float) $test['percentage'], 2) ?>%</span>
-            </div>
-
-            <div class="summary-grid">
-                <div class="summary-box">
-                    <span>Correct Answers</span>
-                    <strong><?= (int) $test['correct_answers'] ?></strong>
-                </div>
-                <div class="summary-box">
-                    <span>Total Questions</span>
-                    <strong><?= (int) $test['total_questions'] ?></strong>
-                </div>
-                <div class="summary-box">
-                    <span>Subjects</span>
-                    <strong><?= count($test['subjects']) ?></strong>
-                </div>
-                <div class="summary-box">
-                    <span>Percentage</span>
-                    <strong><?= number_format((float) $test['percentage'], 2) ?>%</strong>
-                </div>
-            </div>
-
-            <table class="result-table">
-                <thead>
-                    <tr>
-                        <th>Subject</th>
-                        <th>Correct</th>
-                        <th>Wrong</th>
-                        <th>Skipped</th>
-                        <th>Total</th>
-                        <th>Review Marked</th>
-                        <th>Percentage</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($test['subjects'] as $subject): ?>
-                        <tr>
-                            <td><?= pafEscResult($subject['subject_name']) ?></td>
-                            <td><?= (int) $subject['correct_answers'] ?></td>
-                            <td><?= (int) $subject['wrong_answers'] ?></td>
-                            <td><?= (int) $subject['skipped_questions'] ?></td>
-                            <td><?= (int) $subject['total_questions'] ?></td>
-                            <td><?= (int) $subject['review_questions'] ?></td>
-                            <td><?= number_format((float) $subject['percentage'], 2) ?>%</td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-
-            <div class="details-block">
-                <?php foreach ($test['subjects'] as $subject): ?>
-                    <?php $questions = $detailMap[$test['test_id']][$subject['subject_id']] ?? []; ?>
-                    <details>
-                        <summary><?= pafEscResult($subject['subject_name']) ?> Question Review</summary>
-                        <?php if ($questions === []): ?>
-                            <p style="margin-top:12px;">No question detail found for this subject.</p>
-                        <?php else: ?>
-                            <?php foreach ($questions as $question): ?>
-                                <div class="question-review <?= $question['is_correct'] ? 'correct' : 'wrong' ?>">
-                                    <p><strong>Q<?= (int) $question['sequence_number'] ?>:</strong> <?= pafEscResult($question['question_text']) ?></p>
-                                    <p><strong>Student Answer:</strong> <?= pafEscResult($question['user_answer_label']) ?></p>
-                                    <p><strong>Correct Answer:</strong> <?= pafEscResult($question['correct_answer_label']) ?></p>
-                                    <div class="question-tags">
-                                        <span class="<?= $question['is_correct'] ? 'tag-correct' : 'tag-wrong' ?>">
-                                            <i class="fa-solid <?= $question['is_correct'] ? 'fa-circle-check' : 'fa-circle-xmark' ?>"></i>
-                                            <?= $question['is_correct'] ? 'Correct' : 'Wrong' ?>
-                                        </span>
-                                        <?php if ((int) $question['mark_for_review'] === 1): ?>
-                                            <span class="tag-review"><i class="fa-solid fa-flag"></i> Review Marked</span>
-                                        <?php endif; ?>
-                                        <?php if ((int) $question['is_skipped'] === 1 || $question['user_answer'] === 'F' || $question['user_answer'] === ''): ?>
-                                            <span class="tag-skip"><i class="fa-solid fa-forward"></i> Skipped / No Selection</span>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </details>
-                <?php endforeach; ?>
-            </div>
-        </div>
-    <?php endforeach; ?>
-</div>

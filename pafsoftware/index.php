@@ -1,24 +1,34 @@
 <?php
+// Start the session
 session_start();
 
-require_once __DIR__ . '/db_config.php';
-require_once __DIR__ . '/result_service.php';
+require_once 'db_config.php';
 
 $pdo = getPDOConnection();
-
+// Check if the user is logged in; otherwise, redirect to the login page
 if (!isset($_SESSION['user'])) {
     header("Location: userlogin.php");
     exit();
 }
-
+ini_set('display_errors', 1); // Display errors on the page
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL); // Report all types of errors
 $user = $_SESSION['user'];
-$uid = pafNormaliseUserId($user['id']);
-
+$uid = $user['id'];
+// Step 1: Show the test selection popup if no test is selected
 if (!isset($_SESSION['selected_test_id'])) {
-    $tests = pafFetchTests($pdo);
+    // Fetch all available tests
+    $testsQuery = $pdo->query("SELECT * FROM tests");
+    $tests = $testsQuery->fetchAll(PDO::FETCH_ASSOC);
 
-    if (isset($_POST['test_id']) && (int) $_POST['test_id'] > 0) {
-        $_SESSION['selected_test_id'] = (int) $_POST['test_id'];
+    if (!$tests) {
+        echo 'No tests are available right now.';
+        exit();
+    }
+
+    // If a test is selected via the form, store it in the session
+    if (isset($_POST['test_id'])) {
+        $_SESSION['selected_test_id'] = $_POST['test_id'];
         header("Location: " . $_SERVER['PHP_SELF']);
         exit();
     }
@@ -69,36 +79,32 @@ if (!isset($_SESSION['selected_test_id'])) {
     exit();
 }
 
-$selected_test_id = (int) ($_SESSION['selected_test_id'] ?? 0);
-$subjects = pafFetchTestSubjects($pdo, $selected_test_id);
+// Step 2: Check if the selected test has subjects already attempted
+$selected_test_id = $_SESSION['selected_test_id'];
 
-if ($subjects === []) {
-    echo '
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>No Subjects Available</title>
-        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    </head>
-    <body>
-        <div class="container mt-5">
-            <div class="alert alert-warning" role="alert">
-                No subjects are available in this test yet.
-            </div>
-            <a class="btn btn-primary" href="reset_test.php">Choose Another Test</a>
-        </div>
-    </body>
-    </html>';
+// Get all subjects for the selected test
+$subjectsQuery = $pdo->prepare("SELECT id FROM subjects WHERE test_id = :test_id");
+$subjectsQuery->execute([':test_id' => $selected_test_id]);
+$subjects = $subjectsQuery->fetchAll(PDO::FETCH_COLUMN);
+
+if (!$subjects) {
+    unset($_SESSION['selected_test_id']);
+    echo 'No subjects are configured for the selected test yet.';
     exit();
 }
 
-$subjectIds = array_map(static fn($subject) => (int) $subject['id'], $subjects);
-$completedSubjectIds = pafCompletedSubjectIds($pdo, $uid, $subjectIds);
-$completedLookup = array_fill_keys($completedSubjectIds, true);
+// Check if any subject for the selected test exists in the results table for the user
+$subjectsPlaceholders = implode(',', array_fill(0, count($subjects), '?'));
+$sql = "
+    SELECT * FROM results 
+    WHERE user_id = ? AND subject_id IN ($subjectsPlaceholders)
+";
+$stmt = $pdo->prepare($sql);
+$stmt->execute(array_merge([$uid], $subjects));
+$result = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (count($completedSubjectIds) >= count($subjectIds)) {
+// If the user has already attempted any subject, show a message
+if ($result) {
     echo '
     <!DOCTYPE html>
     <html lang="en">
@@ -114,24 +120,29 @@ if (count($completedSubjectIds) >= count($subjectIds)) {
     <body>
         <div class="container mt-5">
             <div class="alert alert-warning" role="alert">
-                You have already completed all subjects in this test.
+                You have already attempted this test. You cannot take it again.
             </div>
-            <button class="btn btn-warning" id="clearTestButton" data-user-id="' . htmlspecialchars($uid, ENT_QUOTES, 'UTF-8') . '" data-test-id="' . $selected_test_id . '">Clear Test</button>
+            <!-- Clear Test Button -->
+            <button class="btn btn-warning" id="clearTestButton" data-user-id="' . $user['id'] . '">Clear Test</button>
         </div>
 
         <script>
             $(document).ready(function() {
                 $("#clearTestButton").click(function() {
                     var userId = $(this).data("user-id");
-                    var testId = $(this).data("test-id");
 
-                    if (confirm("Are you sure you want to clear this test? This action will allow you to retake it.")) {
+                    if (confirm("Are you sure you want to clear the test? This action will allow you to retake the test.")) {
                         $.ajax({
                             url: "reschedule_test.php",
                             method: "GET",
-                            data: { user_id: userId, test_id: testId, redirect: 1 },
-                            success: function() {
-                                window.location.href = "reset_test.php";
+                            data: { user_id: userId },
+                            success: function(response) {
+                                if (response === "success") {
+                                    alert("Test cleared successfully. You can now retake the test.");
+                                    location.reload();
+                                } else {
+                                    alert("Error clearing test: " + response);
+                                }
                             },
                             error: function() {
                                 alert("Error clearing test.");
@@ -146,84 +157,76 @@ if (count($completedSubjectIds) >= count($subjectIds)) {
     exit();
 }
 
-$firstPendingSubjectId = null;
-foreach ($subjects as $subject) {
-    if (!isset($completedLookup[(int) $subject['id']])) {
-        $firstPendingSubjectId = (int) $subject['id'];
-        break;
-    }
+
+$subjectsQuery = $pdo->prepare("SELECT * FROM subjects WHERE test_id = :test_id");
+$subjectsQuery->bindParam(':test_id', $selected_test_id);
+$subjectsQuery->execute();
+$subjects = $subjectsQuery->fetchAll(PDO::FETCH_ASSOC);
+
+if (!$subjects) {
+    unset($_SESSION['selected_test_id']);
+    echo 'No subjects are available for the selected test.';
+    exit();
 }
 
-$requestedSubjectId = isset($_GET['subject_id']) ? (int) $_GET['subject_id'] : 0;
-$validSubjectLookup = array_fill_keys($subjectIds, true);
-$subject_id = $requestedSubjectId > 0 && isset($validSubjectLookup[$requestedSubjectId]) && !isset($completedLookup[$requestedSubjectId])
-    ? $requestedSubjectId
-    : (int) $firstPendingSubjectId;
+$subject_id = isset($_GET['subject_id']) ? (int)$_GET['subject_id'] : $subjects[0]['id'];
 
-$currentSubjectIndex = 0;
-foreach ($subjects as $index => $subject) {
-    if ((int) $subject['id'] === $subject_id) {
-        $currentSubjectIndex = $index;
-        break;
-    }
+$timeQuery = $pdo->prepare("SELECT time_in_minutes FROM subjects WHERE id = :subject_id");
+$timeQuery->bindParam(':subject_id', $subject_id);
+$timeQuery->execute();
+$timeLimit = $timeQuery->fetchColumn();
+
+// Ensure time limit is set
+if ($timeLimit === false) {
+    echo "Error: Time limit not found.";
+    exit();
 }
 
-$timeLimit = (int) ($subjects[$currentSubjectIndex]['time_in_minutes'] ?? 0);
-if ($timeLimit <= 0) {
-    $timeLimit = 1;
-}
-
+// Fetch questions for the selected subject
 $query = $pdo->prepare("SELECT * FROM questions WHERE subject_id = :subject_id ORDER BY sequence_number");
 $query->bindParam(':subject_id', $subject_id);
 $query->execute();
 $questions = $query->fetchAll(PDO::FETCH_ASSOC);
 $totalQuestions = count($questions);
 
-$questionIds = array_map(static fn($question) => (int) $question['id'], $questions);
-$questionStatuses = pafFetchQuestionStatuses($pdo, $uid, $questionIds);
-
-$currentQuestionIndex = isset($_GET['q']) ? (int) $_GET['q'] : 0;
-if ($totalQuestions > 0) {
-    if ($currentQuestionIndex < 0) {
-        $currentQuestionIndex = 0;
-    } elseif ($currentQuestionIndex >= $totalQuestions) {
-        $currentQuestionIndex = $totalQuestions - 1;
-    }
-} else {
-    $currentQuestionIndex = 0;
-}
-
-$currentQuestion = $questions[$currentQuestionIndex] ?? null;
-$currentQuestionId = $currentQuestion['id'] ?? null;
-$currentStatus = $currentQuestionId !== null && isset($questionStatuses[(int) $currentQuestionId])
-    ? $questionStatuses[(int) $currentQuestionId]
-    : ['answer' => '', 'mark_for_review' => 0, 'is_skipped' => 0];
-$userAnswer = (string) ($currentStatus['answer'] ?? '');
-$markForReview = (int) ($currentStatus['mark_for_review'] ?? 0);
-
-$nextSubjectId = null;
-for ($i = $currentSubjectIndex + 1; $i < count($subjects); $i++) {
-    $candidateId = (int) $subjects[$i]['id'];
-    if (!isset($completedLookup[$candidateId])) {
-        $nextSubjectId = $candidateId;
-        break;
-    }
-}
-$isLastSubject = $nextSubjectId === null;
-$activeSubject = $subjects[$currentSubjectIndex];
-$nextSubjectName = '';
-foreach ($subjects as $subject) {
-    if ($nextSubjectId !== null && (int) $subject['id'] === $nextSubjectId) {
-        $nextSubjectName = (string) $subject['name'];
-        break;
-    }
-}
-
 if ($totalQuestions === 0) {
-    $emptySummary = pafUpsertSubjectResult($pdo, $uid, $subject_id);
-    $completedLookup[$subject_id] = true;
-    $isLastSubject = count($completedLookup) >= count($subjectIds);
+    echo 'No questions are available for this subject yet.';
+    exit();
 }
+
+// Handle current question index from GET request
+$currentQuestionIndex = isset($_GET['q']) ? (int)$_GET['q'] : 0;
+
+if ($currentQuestionIndex < 0) {
+    $currentQuestionIndex = 0;
+} elseif ($currentQuestionIndex >= $totalQuestions) {
+    $currentQuestionIndex = $totalQuestions - 1;
+}
+
+// Retrieve the question ID for the current question
+$currentQuestion = $questions[$currentQuestionIndex] ?? null;
+$currentQuestionId = $currentQuestion['id'] ?? null;  // Ensure you get the question ID directly from the current question
+
+// Initialize $userAnswer and $markForReview
+$userAnswer = '';
+$markForReview = 0;
+
+// Fetch the user's previous answer for the current question using the question ID
+if ($currentQuestionId !== null) {
+    $sql = "SELECT answer, mark_for_review, is_skipped FROM answers WHERE user_id = ? AND question_id = ?";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$user['id'], $currentQuestionId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    // Set the user's answer and mark_for_review status
+    $userAnswer = $row['answer'] ?? ''; // Default to empty string if no answer is found
+    $markForReview = $row['mark_for_review'] ?? 0; // Default to 0 if no review mark is found
+}
+
+// Determine the next subject ID and check if it's the last one
+$currentSubjectIndex = array_search($subject_id, array_column($subjects, 'id'));
+$isLastSubject = ($currentSubjectIndex === count($subjects) - 1);
+$nextSubjectId = !$isLastSubject ? $subjects[$currentSubjectIndex + 1]['id'] : null;
 
 ?>
 
@@ -322,7 +325,7 @@ if ($totalQuestions === 0) {
 <div>
     <div class="main">
         <div class="head">
-            <div style="font-size: 2em; color: white" class="subject-name">Subject : <?php echo htmlspecialchars($activeSubject['name']); ?></div>
+            <div style="font-size: 2em; color: white" class="subject-name">Subject : <?php echo $subjects[array_search($subject_id, array_column($subjects, 'id'))]['name']; ?></div>
             <div style="font-size: 1.5em; color: #000000;" class="version">Version : 1.0092</div>
         </div>
         <div class="main-content">
@@ -343,7 +346,6 @@ if ($totalQuestions === 0) {
                         </div>
                     </div>
                 </div>
-                <?php if ($totalQuestions > 0) { ?>
                 <div style="width: 100%; border: 2px solid black;">
                     <div
                         style="display: flex; width: 100%; justify-content: flex-start; align-items: center; gap: 100px; padding: 20px;">
@@ -364,10 +366,10 @@ if ($totalQuestions === 0) {
 
                 <div class="scrollable-div" style="display:flex; align-items:center;">
                     <p style="font-size: 1.4rem;">
-                         <?php echo htmlspecialchars($currentQuestion['question_text']); ?> 
+                         <?php echo $currentQuestion['question_text']; ?> 
                     </p>
                     <?php if (!empty($currentQuestion['question_image'])) { ?>
-                        <img src="<?php echo htmlspecialchars($currentQuestion['question_image']); ?>" alt="Question Image"
+                        <img src="<?php echo $currentQuestion['question_image']; ?>" alt="Question Image"
                             style="width: 70px; height: 70px; padding-left:20px;">
                     <?php } ?>
                 </div>
@@ -378,7 +380,7 @@ if ($totalQuestions === 0) {
                         <input type="hidden" name="question_id"
                             value="<?php echo htmlspecialchars($currentQuestion['id']); ?>">
                         <input type="hidden" name="question_visited" value="1">
-                        <input type="hidden" name="no_answer_selected" value="<?php echo ($userAnswer !== '' && $userAnswer !== 'F') ? '0' : '1'; ?>">
+                        <input type="hidden" name="no_answer_selected" value="1">
 
                         <div class="options-container">
                             <?php
@@ -387,7 +389,7 @@ if ($totalQuestions === 0) {
                                 $optionText = isset($currentQuestion['option_' . strtolower($option)]) ? htmlspecialchars($currentQuestion['option_' . strtolower($option)]) : '';
                                 $optionImage = isset($currentQuestion['option_' . strtolower($option) . '_image']) ? htmlspecialchars($currentQuestion['option_' . strtolower($option) . '_image']) : '';
                             ?>
-                                <div class="option-row">
+                                <div class="option-row" onclick="selectOption('<?php echo $option; ?>')" style="cursor: pointer;">
                                     <div class="option-letter"><?php echo $option; ?></div>
                                     <div class="option-content">
                                         <input type="radio" name="answer" value="<?php echo $option; ?>"
@@ -470,7 +472,7 @@ if ($totalQuestions === 0) {
                                         <a href="?subject_id=<?php echo htmlspecialchars($nextSubjectId); ?>&q=0"
                                             style="text-decoration: none; padding: 10px 20px; background-color: #4CAF50; color: white; border-radius: 5px;"
                                             onclick="hidePopup()">Start
-                                            <?php echo htmlspecialchars($nextSubjectName); ?>
+                                            <?php echo htmlspecialchars($subjects[$currentSubjectIndex + 1]['name']); ?>
                                             Test
                                         </a>
                                     </div>
@@ -500,31 +502,11 @@ if ($totalQuestions === 0) {
                                             style="padding: 10px 20px; background-color: red; color: white; border-radius: 5px; text-decoration:none;"
                                             onclick="endalltest()">End Task</a>
                                     </div>
-                                             </div>
+                                                                 </div>
                              </div>
                          </div>
                      </form>
                  </div>
-                <?php } else { ?>
-                <div style="width: 100%; border: 2px solid black; padding: 30px;">
-                    <h3 style="font-size: 1.6rem; margin-bottom: 15px;">There are no MCQs in this subject.</h3>
-                    <p style="font-size: 1.2rem; margin-bottom: 20px;">
-                        Subject <strong><?php echo htmlspecialchars($activeSubject['name']); ?></strong> has no MCQs yet.
-                    </p>
-                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                        <?php if (!$isLastSubject) { ?>
-                            <a href="?subject_id=<?php echo htmlspecialchars($nextSubjectId); ?>&q=0" style="text-decoration: none; padding: 10px 20px; background-color: #4CAF50; color: white; border-radius: 5px;">Start <?php echo htmlspecialchars($nextSubjectName); ?> Test</a>
-                        <?php } else { ?>
-                            <a href="#" onclick="document.getElementById('resultSection').style.display = 'block'; loadOverallResults(); return false;" style="text-decoration: none; padding: 10px 20px; background-color: green; color: white; border-radius: 5px;">Show Overall Results</a>
-                        <?php } ?>
-                        <a href="reset_test.php" style="text-decoration: none; padding: 10px 20px; background-color: #dc3545; color: white; border-radius: 5px;">Attempt Next Test</a>
-                    </div>
-                    <div id="resultSection" style="margin-top: 30px; display: none;">
-                        <h3>Your Test Results</h3>
-                        <div id="resultContent">Loading results...</div>
-                    </div>
-                </div>
-                <?php } ?>
 
                  <div id="answerReviewModal" class="answer-review-modal">
                      <div class="answer-review-content">
@@ -560,7 +542,6 @@ if ($totalQuestions === 0) {
                     </div>
                 </div>
 
-                <?php if ($totalQuestions > 0) { ?>
                 <div class="top-section">
                     <input type="hidden" id="timeLimit" value="<?php echo $timeLimit; ?>">
                     <div class="btn-container">
@@ -573,33 +554,30 @@ if ($totalQuestions === 0) {
                 <select class="question-select" name="move_to_question" id="move_to_question" onchange="location = this.value;">
                     <option value="" disabled selected>Select question number</option>
                     <?php foreach ($questions as $index => $question) {
-                        $questionId = (int) $question['id'];
+                        $questionId = $question['id'];
 
-                        $status = $questionStatuses[$questionId] ?? ['answer' => '', 'mark_for_review' => 0, 'is_skipped' => 0];
-                        $statusName = pafStatusName($status);
-                        $isMarkedForReview = (int) ($status['mark_for_review'] ?? 0);
-                        $userAnswer = (string) ($status['answer'] ?? '');
-                        $isSkipped = (int) ($status['is_skipped'] ?? 0);
-                        $questionLabel = 'Question ' . ($index + 1);
-                        if ($statusName === 'review') {
-                            $questionLabel .= ' &#9873; Review';
-                        } elseif ($statusName === 'answered') {
-                            $questionLabel .= ' Answered';
-                        } elseif ($statusName === 'skipped') {
-                            $questionLabel .= ' Skipped';
-                        }
+                        // Fetch review and answer status for each question
+                        $stmt = $pdo->prepare("SELECT mark_for_review, answer, is_skipped FROM answers WHERE question_id = ? AND user_id = ?");
+                        $stmt->execute([$questionId, $user['id']]);
+                        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                        $isMarkedForReview = $result['mark_for_review'] ?? 0;
+                        $userAnswer = $result['answer'] ?? '';
+                        $isSkipped = $result['is_skipped'] ?? 0;
+                        
+                        error_log("Debug dropdown - Question $questionId: Answer='$userAnswer', Marked=$isMarkedForReview, Skipped=$isSkipped");
 
                         $highlightStyle = '';
-                        if ($statusName === 'review') {
+                        if ($isMarkedForReview == 1) {
                             $highlightStyle = 'style="background-color: yellow; font-weight: bold;"';
-                        } elseif ($statusName === 'skipped') {
+                        } elseif ($isSkipped == 1) {
                             $highlightStyle = 'style="background-color: #ffcccc; font-weight: bold;"';
                         }
                         
-                        $suffix = '';
-                        if ($statusName === 'review') {
-                            $suffix = ' &#9873; Review';
-                        } elseif ($statusName === 'answered') {
+                        $icon = '';
+                        if ($userAnswer === 'F') {
+                            $icon = ' X';
+                        } elseif ($isMarkedForReview == 1) {
                             $icon = ' ✎';
                         } elseif ($isSkipped == 1) {
                             $icon = ' ⚠';
@@ -610,7 +588,7 @@ if ($totalQuestions === 0) {
                     ?>
                         <option value="?subject_id=<?php echo htmlspecialchars($subject_id); ?>&q=<?php echo htmlspecialchars($index); ?>"
                             <?php echo $isSelected; ?> <?php echo $highlightStyle; ?>>
-                            <?php echo $questionLabel; ?>
+                            Question <?php echo ($index + 1) . $icon; ?>
                         </option>
                     <?php } ?>
                 </select>
@@ -650,7 +628,6 @@ if ($totalQuestions === 0) {
                         <a href="#" type="button" onclick="return endTest()">END TEST</a>
                     </div>
                 </div>
-                <?php } ?>
 
             </div>
 
@@ -684,13 +661,14 @@ if ($totalQuestions === 0) {
             if (--timer < 0) {
                 clearInterval(countdown); // Stop the timer
                 display.textContent = "Time's up!";
+                document.getElementById('endTestForm').submit(); // Auto-submit the form when time runs out
                 showSubjectResultsModal(); // Show the subject results modal
             }
         }, 1000);
     }
 
     function enableFormInputs() {
-        document.querySelectorAll('#answerForm input').forEach(function(input) {
+        document.querySelectorAll('#answerForm').forEach(function(input) {
             input.disabled = false;
         });
     }
@@ -778,15 +756,6 @@ if ($totalQuestions === 0) {
 
     // Function to check if the test has already started on page load
     function checkTestStarted() {
-        const optionsContainer = document.querySelector('.options-container');
-        const startButton = document.querySelector('.btn');
-        const timeRemaining = document.querySelector('#time_remaining');
-        const timeLimitField = document.getElementById('timeLimit');
-
-        if (!optionsContainer || !startButton || !timeRemaining || !timeLimitField) {
-            return;
-        }
-
         let endTime = sessionStorage.getItem('endTime');
         let testStarted = sessionStorage.getItem('testStarted');
 
@@ -798,8 +767,8 @@ if ($totalQuestions === 0) {
             
             if (currentSubjectId === storedSubjectId) {
                 // Same subject, continue with existing timer
-                optionsContainer.classList.remove('hidden');
-                startButton.style.display = 'none';
+                document.querySelector('.options-container').classList.remove('hidden');
+                document.querySelector('.btn').style.display = 'none';
 
                 // Calculate remaining time
                 let currentTime = Date.now();
@@ -807,24 +776,24 @@ if ($totalQuestions === 0) {
 
                 // If time is still left, start the timer with remaining time
                 if (remainingTime > 0) {
-                    startTimer(remainingTime, timeRemaining);
+                    startTimer(remainingTime, document.querySelector('#time_remaining'));
                 } else {
-                    timeRemaining.textContent = "Time's up!";
+                    document.querySelector('#time_remaining').textContent = "Time's up!";
                     showSubjectResultsModal(); // Show the subject results modal when time is up
                 }
             } else {
                 // New subject, reset everything
                 sessionStorage.removeItem('endTime');
                 sessionStorage.removeItem('testStarted');
-                optionsContainer.classList.add('hidden');
-                startButton.style.display = 'block';
-                timeRemaining.textContent = timeLimitField.value + ":00";
+                document.querySelector('.options-container').classList.add('hidden');
+                document.querySelector('.btn').style.display = 'block';
+                document.querySelector('#time_remaining').textContent = document.getElementById('timeLimit').value + ":00";
             }
         } else {
             // Test hasn't started yet, show the start button
-            optionsContainer.classList.add('hidden');
-            startButton.style.display = 'block';
-            timeRemaining.textContent = timeLimitField.value + ":00";
+            document.querySelector('.options-container').classList.add('hidden');
+            document.querySelector('.btn').style.display = 'block';
+            document.querySelector('#time_remaining').textContent = document.getElementById('timeLimit').value + ":00";
         }
     }
 
@@ -867,6 +836,10 @@ if ($totalQuestions === 0) {
     }
 
     window.onload = function() {
+        console.log('Page loaded with subject_id: <?php echo $subject_id; ?>');
+        console.log('Total questions: <?php echo $totalQuestions; ?>');
+        console.log('Current subject index: <?php echo $currentSubjectIndex; ?>');
+        console.log('Next subject ID: <?php echo $nextSubjectId; ?>');
         checkTestStarted();
     };
 </script>
@@ -909,7 +882,7 @@ if ($totalQuestions === 0) {
     // Function to show subject results modal
     function showSubjectResultsModal() {
         // Get current subject information
-        const subjectName = '<?php echo htmlspecialchars($activeSubject["name"]); ?>';
+        const subjectName = '<?php echo htmlspecialchars($subjects[array_search($subject_id, array_column($subjects, "id"))]["name"]); ?>';
         const totalQuestions = <?php echo count($questions); ?>;
         
         // Make AJAX call to get correct answers count
@@ -948,7 +921,7 @@ if ($totalQuestions === 0) {
                             // Show next test button for next subject
                             const nextTestLink = document.getElementById('modalNextTestLink');
                             nextTestLink.href = '#';
-                            nextTestLink.textContent = 'Start <?php echo htmlspecialchars($nextSubjectName); ?> Test';
+                            nextTestLink.textContent = 'Start <?php echo htmlspecialchars($subjects[$currentSubjectIndex + 1]["name"]); ?> Test';
                             nextTestLink.onclick = function() {
                                 console.log('Navigating to next subject: <?php echo htmlspecialchars($nextSubjectId); ?>');
                                 // Close the subject results modal
@@ -1002,31 +975,12 @@ if ($totalQuestions === 0) {
         document.getElementById('subjectResultsModal').style.display = 'none';
         
         // Show the nextSubjectPopup with overall results
-        const nextSubjectPopup = document.getElementById('nextSubjectPopup');
-        if (!nextSubjectPopup) {
-            const resultSection = document.getElementById('resultSection');
-            if (resultSection) {
-                resultSection.style.display = 'block';
-            }
-            loadOverallResults();
-            return;
-        }
-
-        nextSubjectPopup.style.display = 'block';
+        document.getElementById('nextSubjectPopup').style.display = 'block';
         
         // Hide the initial content and show the results section
-        const popupHeading = document.querySelector('#nextSubjectPopup h2');
-        const popupLink = document.querySelector('#nextSubjectPopup a');
-        const popupNextTest = document.querySelector('#nextSubjectPopup .nexttest');
-        if (popupHeading) {
-            popupHeading.style.display = 'none';
-        }
-        if (popupLink) {
-            popupLink.style.display = 'none';
-        }
-        if (popupNextTest) {
-            popupNextTest.style.display = 'none';
-        }
+        document.querySelector('#nextSubjectPopup h2').style.display = 'none';
+        document.querySelector('#nextSubjectPopup a').style.display = 'none';
+        document.querySelector('#nextSubjectPopup .nexttest').style.display = 'none';
         
         // Show the results section
         document.getElementById('resultSection').style.display = 'block';
@@ -1035,7 +989,7 @@ if ($totalQuestions === 0) {
         loadOverallResults();
         
         // Ensure the modal is visible and properly positioned
-        nextSubjectPopup.style.zIndex = '1003';
+        document.getElementById('nextSubjectPopup').style.zIndex = '1003';
         
         console.log('Overall results modal should be visible now');
     }
@@ -1208,22 +1162,7 @@ if ($totalQuestions === 0) {
 
 
     function closePopup() {
-        const popupModal = document.getElementById('popupModal');
-        const nextSubjectPopup = document.getElementById('nextSubjectPopup');
-        const confirmationModal = document.getElementById('confirmationModal');
-        const subjectResultsModal = document.getElementById('subjectResultsModal');
-        if (popupModal) {
-            popupModal.style.display = 'none';
-        }
-        if (nextSubjectPopup) {
-            nextSubjectPopup.style.display = 'none';
-        }
-        if (confirmationModal) {
-            confirmationModal.style.display = 'none';
-        }
-        if (subjectResultsModal) {
-            subjectResultsModal.style.display = 'none';
-        }
+        document.getElementById('nextSubjectPopup').style.display = 'none';
     }
 
     // Function to logout the user and redirect to home page
