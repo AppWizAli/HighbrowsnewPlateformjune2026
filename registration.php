@@ -1,5 +1,8 @@
 
-
+<?php
+header('Location: /highbrows_software/signup');
+exit;
+?>
 
 <!doctype html>
 <html class="no-js" lang="zxx">

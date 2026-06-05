@@ -3,19 +3,19 @@
 if (!function_exists('highbrowsGetDbProfiles')) {
     function highbrowsGetDbProfiles(): array
     {
-        return [
+         return [
             'academic' => [
                 'host' => getenv('HIGHBROWS_ACADEMIC_DB_HOST') ?: 'localhost',
-                'dbname' => getenv('HIGHBROWS_ACADEMIC_DB_NAME') ?: 'u379508397_Acadamic_db',
-                'user' => getenv('HIGHBROWS_ACADEMIC_DB_USER') ?: 'u379508397_Highbrowsian12',
-                'pass' => getenv('HIGHBROWS_ACADEMIC_DB_PASS') ?: 'HighBrowsian92@#',
+                'dbname' => getenv('HIGHBROWS_ACADEMIC_DB_NAME') ?: 'u506631686_HighBrowsNew',
+                'user' => getenv('HIGHBROWS_ACADEMIC_DB_USER') ?: 'u506631686_HighBrowsNew',
+                'pass' => getenv('HIGHBROWS_ACADEMIC_DB_PASS') ?: 'Imran1929@.',
                 'charset' => 'utf8mb4',
             ],
             'pafsoftware' => [
                 'host' => getenv('HIGHBROWS_PAF_DB_HOST') ?: 'localhost',
-                'dbname' => getenv('HIGHBROWS_PAF_DB_NAME') ?: 'u379508397_pafdb',
-                'user' => getenv('HIGHBROWS_PAF_DB_USER') ?: 'u379508397_pafuser',
-                'pass' => getenv('HIGHBROWS_PAF_DB_PASS') ?: 'Officer7837@.',
+                'dbname' => getenv('HIGHBROWS_PAF_DB_NAME') ?: 'u506631686_Pafonline',
+                'user' => getenv('HIGHBROWS_PAF_DB_USER') ?: 'u506631686_Pafonline',
+                'pass' => getenv('HIGHBROWS_PAF_DB_PASS') ?: 'Imran1929@.',
                 'charset' => 'utf8mb4',
             ],
         ];

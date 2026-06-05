@@ -1,4 +1,7 @@
-
+<?php
+header('Location: /highbrows_software/login');
+exit;
+?>
 
 <!doctype html>
 <html class="no-js" lang="zxx">
