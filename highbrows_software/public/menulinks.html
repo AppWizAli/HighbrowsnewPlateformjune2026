@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Menu</title>
+    <!-- Link to Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* General Styles */
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        .menulinks {
+            position: relative;
+            padding: 10px;
+        }
+
+        #menuicon {
+            font-size: 24px;
+            cursor: pointer;
+            color: black;
+            display: none; /* Initially hidden */
+        }
+
+        .navbar-collapse {
+            display: none;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            position: absolute;
+            top: 40px;
+            right: 10px;
+            z-index: 10;
+        }
+
+        .navbar-collapse.show {
+            display: block; /* Show when active */
+        }
+
+        .navlink {
+            display: block;
+            margin: 5px 0;
+            color: black;
+            text-decoration: none;
+        }
+        ul li{
+            text-decoration: none;
+        }
+        .buttons a {
+            text-decoration: none;
+            margin-right: 10px;
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+
+        .signup {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .login {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            #menuicon {
+                display: block; /* Display the icon on small screens */
+            }
+
+            .navbar-collapse {
+                display: none; /* Hide the links by default */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="menulinks">
+        <i id="menuicon" class="fa-solid fa-bars"></i>
+        <div class="navbar-collapse" id="navbarContent">
+            <ul class="navbar-nav">
+                <li><a class="navlink" href="#About Us">About Us</a></li>
+                <li><a class="navlink" href="#Programs">Programs</a></li>
+                <li><a class="navlink" href="#Courses">Courses</a></li>
+                <li><a class="navlink" href="#Admission">Admission</a></li>
+                <li><a class="navlink" href="#Houses">Houses</a></li>
+            </ul>
+            <div class="buttons">
+                <a href="#" class="signup">Sign Up</a>
+                <a href="#" class="login">Login</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const menuIcon = document.getElementById('menuicon');
+            const navbarContent = document.getElementById('navbarContent');
+
+            // Toggle the "show" class when the menu icon is clicked
+            menuIcon.addEventListener('click', () => {
+                navbarContent.classList.toggle('show');
+            });
+        });
+    </script>
+</body>
+</html>

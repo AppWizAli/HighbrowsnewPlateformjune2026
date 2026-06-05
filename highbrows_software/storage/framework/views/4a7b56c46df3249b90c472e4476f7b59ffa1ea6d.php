@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Highbrow Website</title>
+    <link rel="stylesheet" href="<?php echo e(asset('highbro.css')); ?>">
+    <link rel="stylesheet" href="<?php echo e(asset('menulink.css')); ?>">
+    <link rel="icon" href="<?php echo e(asset('highbroimage/Logo final.png')); ?>">
+    <link rel="stylesheet" href="">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/6.0.0/mdb.min.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/6.0.0/mdb.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/slick-carousel/1.8.1/slick.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/slick-carousel/1.8.1/slick-theme.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/slick-carousel/1.9.0/slick-theme.min.css" integrity="sha512-17EgCFERpgZKcm0j0fEq1YCJuyAWdz9KUtv1EjVuaOz8pDnh/0nZxmU6BBXwaaxqoi9PQXnRWqlcDB027hgv9A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/slick-carousel/1.9.0/slick.min.css" integrity="sha512-yHknP1/AwR+yx26cB1y0cjvQUMvEa2PFzt1c9LlS4pRQ5NOTZFWbhBig+X9G9eYW/8m0/4OXNx8pxJ6z57x0dw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <style>
+        .menulinks {
+            position: relative;
+        }
+
+        #menuicon {
+            font-size: 24px;
+            cursor: pointer;
+            color: black;
+        }
+
+        .navbar-collapse {
+            display: none;
+            background-color: white;
+            padding: 10px;
+            border-radius: 5px;
+            position: absolute;
+            top: 45px;
+            z-index: 10;
+            right: 0%;
+        }
+
+        .navbar-collapse.show {
+            display: block;
+        }
+
+        .buttons a {
+            text-decoration: none;
+            margin-right: 10px;
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+
+        .signup {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .login {
+            background-color: #ff5722;
+            color: white;
+        }
+
+        .navlink {
+            display: block;
+            margin: 5px 0;
+            color: black;
+            text-decoration: none;
+        }
+
+        .navlink:hover {
+            text-decoration: underline;
+            color: #ff5722;
+        }
+        .heading{
+            margin-top: 13px !important;
+        }
+    </style>
+
+
+
+</head>
+
+<body>
+ <?php echo $__env->make('includes.nav', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?>
+<div class="container-fluid" >
+    <div class="">
+        <?php if(session('message')): ?>
+        <?php echo e(session('message')); ?>
+
+    <?php endif; ?>
+
+        <div class="container2" style="height: 100% !important;">
+            <!-- Left Profile Section -->
+            <div class="profile-left">
+                <img src="highbroimage/hmlogo1.jpg" alt="Left Profile" class="profile-img" id="profileleft">
+                <img src="highbroimage/Arrow_04 (2).png" alt="Left Bottom" class="bottom-img" id="imageleft">
+            </div>
+
+            <!-- Content Section -->
+            <div class="content">
+                <h1 class="mainhwading">Welcome to <span class="highlight">Highbrows</span> Pre-Cadet<br>School & Academy</h1>
+                <p>Welcome to Highbrows Forces School & Academy – where your child’s journey to <br>success begins. We
+                    specialize in providing academic excellence, leadership training,<br>and disciplined
+                    growth for students.</p>
+
+                <div class="contentbutton">
+                    <a href="https://wa.me/+923345395294"><button class="app-store-button"><b>Contact Us</b><i class="fa-solid fa-arrow-right-long" id="icons"></i></button></a>
+
+                    <!-- <button >Visit on App Store</button> -->
+                    <!-- <button class="app-store-button">Contact Us
+                        <i class="fa-brands fa-apple"></i>
+                    </button> -->
+                </div>
+
+            </div>
+
+            <!-- Right Profile Section -->
+            <div class="profile-right">
+                <img src="highbroimage/hmlogo2.jpg" alt="Right Profile" class="profile-img" id="profileright">
+                <img src="highbroimage/Arrow_04 (3).png" alt="Right Bottom" class="bottom-img" id="imageright">
+            </div>
+
+        </div>
+
+
+        <!-- New Section with Cards -->
+        <div class="card-section pt-5" id="about">
+            <div class="missioncard container justify-content-end">
+                <div class="card-line row">
+                    <div class="col-md-6"> <img src="highbroimage/img10.jpg" alt="Card 1" class="card-imgs"></div>
+                    <div class="col-md-6">
+                        <div class="card-content " id="content3">
+                            <h1>Our Mission</h1>
+                            <p>At Highbrows, we don’t just teach – we build character. Our mission is to create <span
+                                    class="highlight1">Future leaders</span> who excel academically, socially, and
+                                emotionally.</p>
+                        </div>
+                    </div>
+
+
+                </div>
+
+                <div class="card-line row">
+                    <div class="col-md-6 order-md-1 order-2">
+                        <div class="card-content">
+                            <h1>Our History</h1>
+                            <p>Since <span class="highlight1">2000</span>, Highbrows Forces School & Academy has been
+                                preparing students for cadet colleges. Our alumni proudly serve in military academies
+                                across-Pakistan.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6 order-md-2 order-1 d-flex justify-content-end">
+                        <img src="highbroimage/img13.jpg" alt="Card 2" class="card-imgs" id="content2">
+                    </div>
+
+
+
+                </div>
+
+                <div class="card-line row">
+                    <div class="col-md-6"> <img src="highbroimage/img14.jpg" alt="Card 3" class="card-imgs"></div>
+                    <div class="col-md-6">
+                        <div class="card-content" id="content1">
+                            <h1>Our Strength</h1>
+                            <p>From tailored curriculums to personality development programs, we offer a disciplined,
+                                structured environment to help <span class="highlight1">Students succeed</span>.</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+
+        <div class="container1 pt-5 ">
+            <h1>Comprehensive <span class="highlight">Cadet College</span> <br>Curriculum and Training</h1>
+            <p>Our curriculum is tailored to cadet college preparation, ensuring <br> students gain mastery in essential
+                subjects and interview <br> techniques.</p>
+                <section id="container3">
+                    <div class="slider">
+                    <div class="div1">
+                        <div class="img11"><img src="highbroimage/book1.jpeg"></div>
+                        <h4>Book 1</h4>
+                    </div>
+                    <div class="div1">
+                        <img src="highbroimage/book2.jpeg">
+                        <h4>Book 2</h4>
+                    </div>
+                    <div class="div1">
+                        <img src="highbroimage/book3.jpeg">
+                        <h4>Book 3</h4>
+                    </div>
+                    <div class="div1">
+                        <img src="highbroimage/book2.jpeg">
+                        <h4>Book 2</h4>
+                    </div>
+
+                </div>
+                            <!-- jQuery -->
+             <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+             <!-- Slick JS -->
+               <script src="https://cdnjs.cloudflare.com/ajax/libs/slick-carousel/1.8.1/slick.min.js"></script>
+
+               <script>
+                   $(document).ready(function() {
+                     $('.slider').slick({
+                       slidesToShow: 3, // Default for laptops
+                       slidesToScroll: 1,
+                       infinite:true,
+                       autoplay: true,
+                       centerPadding: 20,
+                       autoplaySpeed: 1000,
+                       dots: false,
+                       responsive: [
+                         {
+                           breakpoint: 1024, // For tablets
+                           settings: {
+                             slidesToShow: 2
+                           }
+                         },
+                         {
+                           breakpoint: 768, // For mobile phones
+                           settings: {
+                             slidesToShow: 1
+                           }
+                         }
+                       ]
+                     });
+                   });
+                 </script>
+
+            </section>
+
+        </div>
+        <div class="main-container pt-5">
+            <!-- Heading Section -->
+            <div class="header-section headings">
+                <h1>Intelligence and Interview Preparation Classes</h1>
+            </div>
+
+            <!-- Content Section -->
+             <div class="container">           <div class="row">
+                <div class="col-md-6">
+                    <div class="info-box1 pb-3">
+                        <img src="highbroimage/img15.jpg" alt="Classroom Image">
+                        <p>We offer intelligence and interview preparation classes <br> separately to build strong
+                            communication
+                            and analytical skills.</p>
+
+
+                            <a href="admission.html"><button class="app-store-button"><b>Admission</b><i class="fa-solid fa-arrow-right-long" id="icons"></i></button></a>
+
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="info-box">
+                        <div class="media-container">
+                            <img src="highbroimage/img11.jpg" alt="Video Thumbnail">
+
+                            <a href="highbroimage/video.mp4"><div class="play-icon"><i class="fa-regular fa-circle-play"></i></div></a>
+                        </div>
+                    </div>
+                </div>
+                <!-- First Box -->
+
+
+                <!-- Second Box -->
+
+            </div></div>
+
+
+        </div>
+
+        <!-- 3hrd -->
+
+        <div class="hostel-container pt-5">
+            <!-- Header Section -->
+            <div class="hostel-header headings">
+                <h1>Explore Our <span>Exceptional Hostel Facilities</span> for a Supportive Living Experience</h1>
+                <p>At Highbrows Forces School & Academy, our hostel facilities are designed to nurture students in a
+                    safe and engaging environment. Enjoy nutritious meals, round-the-clock supervision, and a strong
+                    sense of community that promotes health and wellness.</p>
+            </div>
+
+            <!-- Main Content Section -->
+             <div class="container">  <div class="hostel-main-content">
+                <!-- Icon Cards -->
+                <div class="hostel-icon-cards row g-2">
+                    <div class="row">
+                           <!-- Card 1 -->
+                    <div class="hostelImage col-lg-4 col-md-6 col-12">
+                        <div class="hostel-icon-card" id="image1">
+                            <img src="highbroimage/img1.jpg" alt="Nutritious Meals" class="img-fluid">
+                            <div class="paragraph1">
+                                <p>Enjoy healthy, balanced meals served daily</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Card 2 -->
+                    <div class="hostelImage col-lg-4 col-md-6 col-12">
+                        <div class="hostel-icon-card" id="image1">
+                            <img src="highbroimage/img2.jpg" alt="24/7 Supervision" class="img-fluid">
+                            <div class="paragraph2">
+                                <p>Caring staff are available around the clock</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Card 3 -->
+                    <div class="hostelImage col-lg-4 col-md-6 col-12">
+                        <div class="hostel-icon-card" id="image1">
+                            <img src="highbroimage/img3.jpg" alt="Health & Wellness" class="img-fluid">
+                            <div class="paragraph3">
+                                <p>Regular health checkups and support provided</p>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+
+            <div class="row">
+                     <!-- Card 4 -->
+                     <div class="hostelImage col-lg-4 col-md-6 col-12">
+                        <div class="hostel-icon-card" id="image1">
+                            <img src="highbroimage/img4.jpg" alt="Study Rooms" class="img-fluid">
+                            <div class="paragraph4">
+                                <p>Quiet, comfortable spaces for focused learning</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 5 -->
+                    <div class="hostelImage col-lg-4 col-md-6 col-12">
+                        <div class="hostel-icon-card" id="image1">
+                            <img src="highbroimage/img5.jpg" alt="Laundry Services" class="img-fluid">
+                            <div class="paragraph5">
+                                <p>Nutritious weekly meals tailored for hostel residents, ensuring convenience and health.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 6 -->
+                    <div class="hostelImage col-lg-4 col-md-6 col-12">
+                        <div class="hostel-icon-card" id="image1">
+                            <img src="highbroimage/img6.jpg" alt="Daily Cleaning" class="img-fluid" height="50px">
+                            <div class="paragraph6">
+                                <p>Clean, hygienic rooms maintained every day</p>
+                            </div>
+                        </div>
+                    </div>
+            </div>
+
+                </div>
+            </div>
+            </div>
+
+
+        </div>
+
+
+
+        <div class="content-wrapper pt-5">
+
+            <div class="studentlife headings">
+
+                <h1>Student Life at <span class="highlight">Highbrows</span></h1>
+                <p>At Highbrows, we believe learning goes beyond the classroom. Our student life program helps students
+                    develop leadership, discipline, and confidence.</p>
+
+            </div>
+
+            <div class="image-gallery-section">
+                <!-- Top Row - Left to Right Animation -->
+                <div class="custom-row animate-from-left">
+                    <img src="highbroimage/img1.jpg" alt="Image 1" class="gallery-image1">
+                    <img src="highbroimage/img2.jpg" alt="Image 2" class="gallery-image1">
+                    <img src="highbroimage/img3.jpg" alt="Image 3" class="gallery-image1">
+                    <img src="highbroimage/img4.jpg" alt="Image 4" class="gallery-image1">
+                    <img src="highbroimage/img5.jpg" alt="Image 5" class="gallery-image1">
+                </div>
+
+                <!-- Bottom Row - Right to Left Animation -->
+                <div class="custom-row  animate-from-right">
+                    <img src="highbroimage/img6.jpg" alt="Image 6" class="gallery-image1">
+                    <img src="highbroimage/img7.jpg" alt="Image 7" class="gallery-image1">
+                    <img src="highbroimage/img8.jpg" alt="Image 8" class="gallery-image1">
+                    <img src="highbroimage/img9.jpg" alt="Image 9" class="gallery-image1">
+                    <img src="highbroimage/img10.jpg" alt="Image 10" class="gallery-image1">
+                </div>
+            </div>
+    <div class="container">
+        <div class="info-cards row justify-content-center">
+            <div class="col-md-4 d-flex justify-content-center">
+                <div class="info-card1 text-center">
+                    <img src="highbroimage/img12.jpg" alt="Leadership" class="info-image" id="image2">
+                    <div class="leader1 leader">
+                        <p>Activities encourage responsibility, <br> discipline, and decision-making</p>
+                    </div>
+                    <p class="activities">Leadership and Responsibility</p>
+                </div>
+            </div>
+            <div class="col-md-4 d-flex justify-content-center">
+                <div class="info-card2 text-center">
+                    <img src="highbroimage/img11.jpg " alt="Activities" class="info-image" id="image3">
+                    <p class="activities">Extra-Curricular Activities</p>
+                    <div class="leader2 leader">
+                        <p>Weekly outings and indoor sports <br> keep students active and engaged</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 d-flex justify-content-center">
+                <div class="info-card3 text-center">
+                    <img src="highbroimage/img13.jpg" alt="Education" class="info-image" id="image4">
+                    <p class="activities">Islamic Education</p>
+                    <div class="leader3 leader">
+                        <p>We teach Islamic values, guiding students to become compassionate and ethical individuals</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+        </div>
+
+        <!-- 5th sec  -->
+
+
+        <div class="teachers-section pt-5" id="teachers">
+            <div class="teacherabout headings">
+                <h2>Meet Our <span>Teachers</span></h2>
+                <p>Our experienced instructors are dedicated to helping each student reach their fullest potential</p>
+            </div>
+            <div class="container"><div class="teacher-cards row">
+                <div class="col-md-3"> <div class="teacher-card">
+                    <div class="teachercolor">
+                        <img src="highbroimage/teacher1.jpg" alt="Teacher 1">
+                    </div>
+                    <div class="teacher-data">
+                        <button>
+                            Mr. Hamza
+                        </button>
+                        <p>Mathematics</p>
+                    </div>
+                </div></div>
+                <div class="col-md-3">   <div class="teacher-card">
+                    <div class="teachercolor1">
+                        <img src="highbroimage/teacher2.jpg" alt="Teacher 2">
+                    </div>
+                    <div class="teacher-data">
+                        <button>
+                            Mr. Ali
+                        </button>
+                        <p>Physics</p>
+                    </div>
+                </div></div>
+                <div class="col-md-3">        <div class="teacher-card">
+                    <div class="teachercolor">
+                        <img src="highbroimage/teacher1.jpg" alt="Teacher 3">
+                    </div>
+                    <div class="teacher-data">
+                        <button>
+                          Ahmed
+                        </button>
+                        <p>Chemistry</p>
+                    </div>
+                </div></div>
+                <div class="col-md-3">    <div class="teacher-card">
+                    <div class="teachercolor1">
+                        <img src="highbroimage/teacher2.jpg" alt="Teacher 4">
+                    </div>
+                    <div class="teacher-data">
+                        <button>
+                        Adeel
+                        </button>
+                        <p>Biology</p>
+                    </div>
+                </div></div>
+
+
+
+
+            </div></div>
+
+        </div>
+
+
+
+        <!-- 5th section ooooooo -->
+
+    <div class="container">
+        <div class="testimonial-video-container row justify-content-between align-items-center pt-5">
+            <!-- Testimonial Section -->
+            <div class="col-md-6 order-md-1 order-2">
+                <div class="testimonial-section-custom">
+                    <div class="highbrowsian">
+                        <img src="highbroimage/Logo final.png" alt="Logo">
+                        <h2>High<span>browsian</span></h2>
+                    </div>
+
+                    <p><b>"The school’s personalized approach has truly made a difference. My son has excelled
+                            academically and grown in confidence. We’re thrilled with our choice!"</b></p>
+                    <div class="custom-icons d-flex">
+                        <div class="custom-icon">
+                            <img src="highbroimage/Group 4.png" alt="Experience Icon">
+                            <span> <b>24+</b> <br> <b>Years</b> <br>Experience</span>
+                        </div>
+                        <div class="custom-icon">
+                            <img src="highbroimage/Group 5.png" alt="Success Stories Icon">
+                            <span> <b>2000+</b> <br> <b>Success</b> <br>Stories</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Video Section -->
+            <div class="col-md-6 d-flex justify-content-end order-md-2 order-1">
+                <div class="video-container my-5">
+                    <div class="video-stack-custom">
+                        <video src="video1.mp4" poster="https://via.placeholder.com/200x300" muted></video>
+                    </div>
+                    <div class="video-stack-custom">
+                        <video src="video2.mp4" poster="https://via.placeholder.com/200x300" muted></video>
+                    </div>
+                    <div class="video-stack-custom">
+                        <video src="highbroimage/naseer yad.mp4" poster="https://via.placeholder.com/200x300"></video>
+                    </div>
+                    <div class="video-play-icon-custom">&#9658;</div>
+                    <div class="navigation-arrows-custom">
+                        <div class="custom-arrow">&#8592;</div>
+                        <div class="custom-arrow">&#8594;</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+
+        <!-- 6th fee section -->
+
+
+        <div class="fees-section pt-5" id="fees">
+            <h2>Transparent and <span>Affordable</span> Fees</h2>
+            <p>Our fees are structured to be clear and affordable, covering both school tuition and boarding <br> expenses.
+                Below is a detailed breakdown of the costs associated with enrollment at Highbrows <br>Forces School &
+                Academy.</p>
+    <div class="container"><div class="fee-cards row">
+        <div class="col-md-3">      <div class="fee-card1">
+            <div class="cards1" id="div1">
+                <div class="cardsNormal" id="div1">
+                    <h3>6th grade fee</h3>
+                    <p>Pay only for what you <br> need with our clearly <br>defined pricing.</p>
+                    <div class="arrow">
+                        <img src="highbroimage/arrow-up.png" alt="" width="36px" height="36px">
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="contant1">
+                <div class="feetable1">
+                    <table>
+                        <tr>
+                            <td>
+                                <h4>Tuition Fee</h4>
+                            </td>
+                            <td class="custom-cell">PKR 7,000</td>
+
+                        </tr>
+
+                        <tr>
+
+                            <td>
+                                <h4>Annual <br>
+                                    Charges</h4>
+                            </td>
+                            <td class="custom-cell">PKR 7,000</td>
+
+                        </tr>
+                        <tr>
+
+                            <td>
+                                <h4>Registration <br>
+                                    Fee</h4>
+                            </td>
+                            <td class="custom-cell">PKR 7,000</td>
+
+                        </tr>
+
+                    </table>
+                </div>
+            </div>
+
+        </div></div>
+        <div class="col-md-3">   <div class="fee-card2">
+            <div class="cards2">
+                <h3>5th grade fee</h3>
+                <p>Everything you need to <br> know about school fees <br>at a glance.</p>
+
+
+                <div class="arrow">
+                    <img src="highbroimage/arrow-up.png" alt="" width="36px" height="36px">
+                </div>
+            </div>
+
+            <div class="contant2">
+                <div class="feetable2">
+                    <table>
+                        <tr>
+                            <td>
+                                <h4>Tuition Fee</h4>
+                            </td>
+                            <td class="custom-cell">PKR 7,000</td>
+
+                        </tr>
+
+                        <tr>
+
+                            <td>
+                                <h4>Annual <br>
+                                    Charges</h4>
+                            </td>
+                            <td class="custom-cell">PKR 7,000</td>
+
+                        </tr>
+                        <tr>
+
+                            <td>
+                                <h4>Registration <br>
+                                    Fee</h4>
+                            </td>
+                            <td class="custom-cell">PKR 7,000</td>
+
+                        </tr>
+
+                    </table>
+                </div>
+            </div>
+
+
+        </div></div>
+        <div class="col-md-3">     <div class="fee-card3">
+
+            <div class="cards3">
+
+                <h3>7th grade fee</h3>
+                <p>Our plans come with a <br>promise of quality and <br>dedicated support.</p>
+                <div class="arrow">
+                    <img src="highbroimage/arrow-up.png" alt="" width="36px" height="36px">
+                </div>
+
+            </div>
+
+
+
+
+            <div class="contant3">
+                <div class="feetable3">
+                    <table>
+                        <tr>
+                            <td>
+                                <h4>Tuition Fee</h4>
+                            </td>
+                            <td class="custom-cell">PKR 7,000</td>
+
+                        </tr>
+
+                        <tr>
+
+                            <td>
+                                <h4>Annual <br>
+                                    Charges</h4>
+                            </td>
+                            <td class="custom-cell">PKR 7,000</td>
+
+                        </tr>
+                        <tr>
+
+                            <td>
+                                <h4>Registration <br>
+                                    Fee</h4>
+                            </td>
+                            <td class="custom-cell">PKR 7,000</td>
+
+                        </tr>
+
+                    </table>
+                </div>
+            </div>
+
+
+        </div></div>
+        <div class="col-md-3">        <div class="fee-card4">
+            <div class="cards4">
+                <div class="cardsNormal" id="div4">
+                    <h3>8th grade fee</h3>
+                    <p>Invest in education that <br>shapes a brighter <br>tomorrow.</p>
+                    <div class="arrow">
+                        <img src="highbroimage/arrow-up.png" alt="" width="36px" height="36px">
+                    </div>
+                </div>
+            </div>
+
+            <div class="contant4">
+                <div class="feetable4">
+                    <table>
+                        <tr>
+                            <td>
+                                <h4>Tuition Fee</h4>
+                            </td>
+                            <td class="custom-cell">PKR 7,000</td>
+
+                        </tr>
+
+                        <tr>
+
+                            <td>
+                                <h4>Annual <br>
+                                    Charges</h4>
+                            </td>
+                            <td class="custom-cell">PKR 7,000</td>
+
+                        </tr>
+                        <tr>
+
+                            <td>
+                                <h4>Registration <br>
+                                    Fee</h4>
+                            </td>
+                            <td class="custom-cell">PKR 7,000</td>
+
+                        </tr>
+
+                    </table>
+                </div>
+            </div>
+
+
+        </div></div>
+
+
+
+
+
+
+
+
+
+    </div>
+</div>
+
+
+        </div>
+
+
+        <div class="hostel-fees-section pt-5">
+            <h2>Hostel Fees</h2>
+            <div class="container">      <div class="hostel-fee-cards">
+                <div class="hostel-fee-card1">
+                    <div class="cards5">
+                        <h3>Shared Room</h3>
+                        <p>Affordable shared living <br> with all essential <br> amenities included.</p>
+                        <div class="arrow"><img src="highbroimage/arrow-up.png" alt="" width="36px" height="36px">
+                        </div>
+
+
+
+                    </div>
+
+
+                    <div class="contant5">
+                        <div class="feetable5">
+                            <table>
+                                <tr>
+                                    <td>
+                                        <h4>Tuition Fee</h4>
+                                    </td>
+                                    <td class="custom-cell">PKR 7,000</td>
+
+                                </tr>
+
+                                <tr>
+
+                                    <td>
+                                        <h4>Annual <br>
+                                            Charges</h4>
+                                    </td>
+                                    <td class="custom-cell">PKR 7,000</td>
+
+                                </tr>
+                                <tr>
+
+                                    <td>
+                                        <h4>Registration <br>
+                                            Fee</h4>
+                                    </td>
+                                    <td class="custom-cell">PKR 7,000</td>
+
+                                </tr>
+
+                            </table>
+                        </div>
+                    </div>
+
+
+                </div>
+                <div class="hostel-fee-card2">
+                    <div class="cards6">
+                        <div class="cards6Private" id="div6">
+                            <h3>Private Room</h3>
+                            <p>Enjoy privacy and <br>personalized comfort in <br>your own space.</p>
+                            <div class="arrow">
+                                <img src="highbroimage/arrow-up.png" alt="" width="36px" height="36px">
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <div class="contant6">
+                        <div class="feetable6">
+                            <table>
+                                <tr>
+                                    <td>
+                                        <h4>Tuition Fee</h4>
+                                    </td>
+                                    <td class="custom-cell">PKR 7,000</td>
+
+                                </tr>
+
+                                <tr>
+
+                                    <td>
+                                        <h4>Annual <br>
+                                            Charges</h4>
+                                    </td>
+                                    <td class="custom-cell">PKR 7,000</td>
+
+                                </tr>
+                                <tr>
+
+                                    <td>
+                                        <h4>Registration <br>
+                                            Fee</h4>
+                                    </td>
+                                    <td class="custom-cell">PKR 7,000</td>
+
+                                </tr>
+
+                            </table>
+                        </div>
+                    </div>
+
+
+                </div>
+            </div></div>
+
+
+        </div>
+
+        <!-- 7thsection -->
+    <div class="container">
+        <div class="customer-contact row justify-content-between pt-5">
+            <div class="col-md-6">
+                <div class="customer-info">
+                    <h2>Contact <span class="highlight">Us</span></h2>
+                    <p>We're here to help! Get in touch for any <br> questions or assistance.</p>
+
+                    <div class="contact-item">
+
+                        <div class="contentlogo">
+                            <img src="highbroimage/sms.png" alt="Email Icon" class="icon">
+                        </div>
+                        <span>info@highbrowsian.com</span>
+                    </div>
+
+                    <div class="contact-item">
+
+                        <div class="contentlogo">
+                            <img src="highbroimage/call-received.png" alt="Phone Icon" class="icon">
+                        </div>
+                        <span>+92 333 5115229</span>
+                    </div>
+
+                    <div class="contact-item">
+
+                        <div class="contentlogo">
+                            <img src="highbroimage/location.png" alt="Location Icon" class="icon">
+                        </div>
+    <span>Tulsa Road,Lalazar, Rawalpindi, Pakistan</span>
+
+                    </div>
+                    <a href="https://wa.me/+923345395294"><button class="app-store-button"><b>Whats App</b><i class="fa-brands fa-whatsapp" id="icons"></i></button></a>
+
+                </div>
+            </div>
+            <div class="col-md-6 d-flex justify-content-end">
+                <div class="customer-form1">
+                    <h3>Get in touch</h3>
+                    <p>We are available 24/7 for you!</p>
+                    <?php if(session('success')): ?>
+                    <p class="success-message"><?php echo e(session('success')); ?></p>
+                <?php endif; ?>
+
+                <form action="<?php echo e(route('contact.store')); ?>" method="POST">
+                    <?php echo csrf_field(); ?>
+                    <div class="input-group">
+                        <input type="text" name="first_name" placeholder="First Name" required>
+                        <input type="text" name="last_name" placeholder="Last Name" required>
+                    </div>
+                    <input type="email" name="email" placeholder="Email" required>
+                    <input type="tel" name="phone" placeholder="Phone Number" required>
+                    <textarea name="message" placeholder="How can we help you!" required></textarea>
+                    <button type="submit" class="submit-btn">Submit</button>
+                </form>
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+
+
+
+
+        <!-- 8th section fotter -->
+
+       <?php echo $__env->make('includes.footer', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?>
+
+        </div>
+
+    </div>
+</div>
+
+    <script>
+        // Get all grid items
+        const gridItems = document.querySelectorAll('.hostel-grid-item');
+
+        // Add hover effect
+        gridItems.forEach(item => {
+            item.addEventListener('mouseover', () => {
+                // Hide all other items
+                gridItems.forEach(otherItem => {
+                    if (otherItem !== item) {
+                        otherItem.classList.add('hidden');
+                    }
+                });
+
+                // Expand hovered item
+                item.classList.add('full-width');
+            });
+
+            item.addEventListener('mouseleave', () => {
+                // Show all items
+                gridItems.forEach(otherItem => {
+                    otherItem.classList.remove('hidden');
+                });
+
+                // Reset hovered item
+                item.classList.remove('full-width');
+            });
+        });
+
+
+    </script>
+
+
+
+    <script src="<?php echo e(asset('highbrows.js')); ?>"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/slick-carousel/1.9.0/slick.min.js"
+        integrity="sha512-HGOnQO9+SP1V92SrtZfjqxxtLmVzqZpjFFekvzZVWoiASSQgSr4cw9Kqd2+l8Llp4Gm0G8GIFJ4ddwZilcdb8A=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <script>
+            $(document).ready(function () {
+                $('.responsive').slick({
+  centerMode: true,
+  centerPadding: '10px',
+  slidesToShow: 4,
+  responsive: [
+    {
+      breakpoint: 768,
+      settings: {
+        arrows: false,
+        centerMode: true,
+        centerPadding: '40px',
+        slidesToShow: 2
+      }
+    },
+    {
+      breakpoint: 480,
+      settings: {
+        arrows: false,
+        centerMode: true,
+        centerPadding: '40px',
+        slidesToShow: 1
+      }
+    }
+  ]
+});
+            });
+            $(document).ready(function () {
+                $('.fee-cards').slick({
+  centerMode: true,
+  centerMargin: '10px',
+  slidesToShow: 4,
+  responsive: [
+    {
+      breakpoint: 768,
+      settings: {
+        arrows: false,
+        centerMode: true,
+        centerPadding: '40px',
+        slidesToShow: 2
+      }
+    },
+    {
+      breakpoint: 480,
+      settings: {
+        arrows: false,
+        centerMode: true,
+        centerPadding: '40px',
+        slidesToShow: 1
+      }
+    }
+  ]
+});
+            });
+            $(document).ready(function () {
+    $('.hostel-fee-cards').slick({
+        centerMode: true,
+        slidesToShow: 2,
+        infinite: false, // Prevents ghost cards from appearing
+        responsive: [
+            {
+                breakpoint: 768,
+                settings: {
+                    arrows: false,
+                    centerMode: false, // Disable centerMode for small screens
+                    slidesToShow: 1
+                }
+            },
+            {
+                breakpoint: 480,
+                settings: {
+                    arrows: false,
+                    centerMode: false, // Disable centerMode for smaller screens
+                    slidesToShow: 1
+                }
+            }
+        ]
+    });
+});
+$(document).ready(function () {
+                $('.teacher-cards').slick({
+  centerMode: true,
+  centerPadding: '10px',
+  slidesToShow: 4,
+  responsive: [
+    {
+      breakpoint: 768,
+      settings: {
+        arrows: false,
+        centerMode: true,
+        centerPadding: '40px',
+        slidesToShow: 2
+      }
+    },
+    {
+      breakpoint: 480,
+      settings: {
+        arrows: false,
+        centerMode: true,
+        centerPadding: '40px',
+        slidesToShow: 1
+      }
+    }
+  ]
+});
+            });
+            $(document).ready(function () {
+                $('.info-cards').slick({
+  centerMode: true,
+  centerPadding: '10px',
+  slidesToShow: 3,
+  responsive: [
+    {
+      breakpoint: 768,
+      settings: {
+        arrows: false,
+        centerMode: true,
+        centerPadding: '40px',
+        slidesToShow: 2
+      }
+    },
+    {
+      breakpoint: 480,
+      settings: {
+        arrows: false,
+        centerMode: true,
+        centerPadding: '40px',
+        slidesToShow: 1
+      }
+    }
+  ]
+});
+            });
+        </script>
+</body>
+
+</html>
+<?php /**PATH /home/u379508397/domains/highbrowsian.com/public_html/highbrows_software/resources/views/index.blade.php ENDPATH**/ ?>

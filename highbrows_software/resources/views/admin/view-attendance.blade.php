@@ -1,0 +1,155 @@
+@include('admin.head')
+@include('admin.nav')
+<div id="layoutSidenav">
+    @if(auth()->user()->usertype == 'admin')
+    @include('admin.sidebar')
+@elseif(auth()->user()->usertype == 'subadmin')
+    @include('subadmin.sidebar')
+    @elseif(auth()->user()->usertype == 'cordinator')
+    @include('cordinator.sidebar')
+@else
+@include('student.sidebar')
+@endif
+
+    <!-- Container for the form, adjusted to the right of the sidebar -->
+    <div id="layoutSidenav_content">
+        <main>
+            <div class="container mt-5">
+                <div class="d-flex justify-content-start mb-4">
+                    <a href="{{ route('attendance') }}" class="btn " style="background-color: #084298;color:white;">Add new attendance</a>
+                    {{-- <button class="btn my-4 text-white p-2 " style="background-color: #084298">Add New Subject</button> --}}
+                </div>
+
+                <div class="card shadow-lg border-0">
+                    <div class="card-header text-white" style="background-color: #084298">
+                        <h4><i class="fas fa-book"></i> Attendance</h4>
+
+                    </div>
+                    <div class="card-body bg-light">
+
+                                  <!-- Search Form -->
+
+
+              <!-- Time Table -->
+              <!-- Table for Class, Section, and Students -->
+              <div class="card mt-4">
+                <div class="card-body">
+                  <h4 class="card-title">Class and Student Information</h4>
+                  <div class="container mt-4">
+                    <h4>View Attendance</h4>
+                    <form id="filterForm" class="mb-4">
+                        @csrf
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label for="class_id">Class</label>
+                                <select name="class_id" id="class_id" class="form-control">
+                                    <option value="">Select Class</option>
+                                    @foreach ($classes as $class)
+                                        <option value="{{ $class->id }}">{{ $class->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="date">Date</label>
+                                <input type="date" name="date" id="date" class="form-control">
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button type="button" id="filterButton" class="btn" style="background-color: #084298;color:white">Filter</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div id="attendanceTable" class="table-responsive" style="display: none;">
+                    <table class="table table-bordered text-center">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Student</th>
+                                <th>Roll No</th>
+                                <th>Attendance</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendanceBody"></tbody>
+                    </table>
+                </div>
+                <div id="attendanceSummary" class="mt-4" style="display: none;">
+                    <h5>Attendance Summary</h5>
+                    <ul class="list-group">
+                        <li class="list-group-item">Total Students: <span id="totalStudents">0</span></li>
+                        <li class="list-group-item">Present: <span id="presentStudents">0</span></li>
+                        <li class="list-group-item">Absent: <span id="absentStudents">0</span></li>
+                        <li class="list-group-item">On Leave: <span id="onLeaveStudents">0</span></li>
+                    </ul>
+                </div>
+
+                </div>
+              </div>
+
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+</div>
+
+
+        </div>
+        <script>
+   document.getElementById('filterButton').addEventListener('click', function () {
+    const classId = document.getElementById('class_id').value;
+    const date = document.getElementById('date').value;
+
+    if (!classId || !date) {
+        alert('Please select both class and date.');
+        return;
+    }
+
+    fetch(`/highbrows_software/attendance/filter?class_id=${classId}&date=${date}`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('attendanceBody');
+            tbody.innerHTML = '';
+              console.log(data);
+            if (!data.students || data.students.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4">No students found for this class and date.</td></tr>';
+                document.getElementById('attendanceSummary').style.display = 'none';
+                return;
+            }
+
+           data.students.forEach((student, index) => {
+    const attendanceRecord = data.attendanceRecords.find(record => record.student_id === student.id);
+    const attendance = attendanceRecord ? attendanceRecord.status : 'Absent';
+
+    tbody.innerHTML += `
+        <tr>
+            <td>${index + 1}</td>
+            <td>${student.full_name}</td>
+            <td>${student.custom_id}</td>
+            <td>${attendance}</td>
+        </tr>
+    `;
+});
+
+            // Update Summary
+            document.getElementById('totalStudents').textContent = data.stats.total;
+            document.getElementById('presentStudents').textContent = data.stats.present;
+            document.getElementById('absentStudents').textContent = data.stats.absent;
+            document.getElementById('onLeaveStudents').textContent = data.stats.onLeave;
+
+            document.getElementById('attendanceTable').style.display = 'block';
+            document.getElementById('attendanceSummary').style.display = 'block';
+        })
+        .catch(error => console.error('Error:', error));
+});
+
+
+
+          </script>
+        @include('admin.footer')

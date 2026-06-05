@@ -1,0 +1,123 @@
+<?php echo $__env->make('admin.head', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?>
+<?php echo $__env->make('admin.nav', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?>  
+<div id="layoutSidenav">
+    <?php if(auth()->user()->usertype == 'admin'): ?>
+    <?php echo $__env->make('admin.sidebar', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?> 
+<?php elseif(auth()->user()->usertype == 'subadmin'): ?>
+    <?php echo $__env->make('subadmin.sidebar', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?> 
+<?php else: ?>
+<?php echo $__env->make('student.sidebar', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?> 
+<?php endif; ?> 
+
+    <!-- Container for the form, adjusted to the right of the sidebar -->
+    <div id="layoutSidenav_content">
+        <main>
+            <div class="container mt-5">
+                <div class="card shadow-lg">
+                    <div class="card-header  text-white " style="background-color: #084298">
+                        <h4>Edit Profile</h4>
+                    </div>
+                    <div class="card-body">
+                        <?php if($errors->any()): ?>
+    <ul>
+        <?php $__currentLoopData = $errors->all(); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $error): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+            <li><?php echo e($error); ?></li>
+        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+    </ul>
+<?php endif; ?>
+<?php if(session('message')): ?>
+    <div class="alert alert-info">
+        <?php echo e(session('message')); ?>
+
+    </div>
+<?php endif; ?>
+
+<form id="registrationForm" method="POST" action="<?php echo e(route('profile.update', $user->id)); ?>" class="needs-validation" novalidate>
+    <?php echo csrf_field(); ?>
+    <?php echo method_field('PUT'); ?> <!-- Method for update -->
+    
+    <div class="mb-3">
+        <label for="username" class="form-label">Username:</label>
+        <input type="text" id="username" name="name" class="form-control" value="<?php echo e(old('name', $user->name)); ?>" required>
+        <?php $__errorArgs = ['name'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?>
+            <div class="text-danger"><?php echo e($message); ?></div>
+        <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?>
+    </div>
+
+    <div class="mb-3">
+        <label for="contact" class="form-label">Contact Number:</label>
+        <input type="text" id="contact" name="contact" class="form-control" value="<?php echo e(old('contact', $user->contact)); ?>" required>
+        <?php $__errorArgs = ['contact'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?>
+            <div class="text-danger"><?php echo e($message); ?></div>
+        <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?>
+    </div>
+
+    <div class="mb-3">
+        <label for="email" class="form-label">Email:</label>
+        <input type="email" id="email" name="email" class="form-control" value="<?php echo e(old('email', $user->email)); ?>" required>
+        <?php $__errorArgs = ['email'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?>
+            <div class="text-danger"><?php echo e($message); ?></div>
+        <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?>
+    </div>
+
+    <div class="mb-3">
+        <label for="password" class="form-label">Password:</label>
+        <input type="password" id="password" name="password" class="form-control">
+        <?php $__errorArgs = ['password'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?>
+            <div class="text-danger"><?php echo e($message); ?></div>
+        <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?>
+        <small class="form-text text-muted">Leave empty if you do not want to change the password.</small>
+    </div>
+
+    <button type="submit" class="btn text-white" style="background-color:#084298;">Update</button>
+</form>
+
+
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+</div>
+
+
+        </div>
+        <script>
+    document.getElementById('apply_cadet_colleges').addEventListener('change', function () {
+    const cadetCollegesList = document.getElementById('cadetCollegesList');
+    cadetCollegesList.style.display = this.checked ? 'block' : 'none';
+});
+
+        </script>
+        
+        <?php echo $__env->make('admin.footer', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?> 
+<?php /**PATH /home/u379508397/domains/highbrowsian.com/public_html/highbrows_software/resources/views/student/edit-profile.blade.php ENDPATH**/ ?>
