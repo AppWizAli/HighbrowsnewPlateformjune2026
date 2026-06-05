@@ -76,11 +76,14 @@ body {
 .sidebar-nav {
     display: grid;
     gap: 8px;
+    align-content: start;
 }
 
 .sidebar-link {
     color: rgba(255, 255, 255, 0.86);
     text-decoration: none;
+    display: block;
+    width: 100%;
     padding: 12px 14px;
     border-radius: 14px;
     font-size: 0.98rem;
@@ -223,6 +226,10 @@ a.btn {
     align-items: center;
     justify-content: center;
     gap: 8px;
+}
+
+a.btn {
+    width: auto;
 }
 
 .btn-primary {
