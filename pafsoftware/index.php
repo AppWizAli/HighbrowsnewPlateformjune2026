@@ -1,39 +1,39 @@
 <?php
-// Start the session
 session_start();
 
-require_once 'db_config.php';
+require_once __DIR__ . '/db_config.php';
+require_once __DIR__ . '/result_service.php';
 
 $pdo = getPDOConnection();
-// Check if the user is logged in; otherwise, redirect to the login page
+pafEnsureResultTables($pdo);
+
 if (!isset($_SESSION['user'])) {
-    header("Location: userlogin.php");
+    header('Location: userlogin.php');
     exit();
 }
-ini_set('display_errors', 1); // Display errors on the page
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL); // Report all types of errors
-$user = $_SESSION['user'];
-$uid = $user['id'];
-// Step 1: Show the test selection popup if no test is selected
-if (!isset($_SESSION['selected_test_id'])) {
-    // Fetch all available tests
-    $testsQuery = $pdo->query("SELECT * FROM tests");
-    $tests = $testsQuery->fetchAll(PDO::FETCH_ASSOC);
 
-    if (!$tests) {
+$user = $_SESSION['user'];
+$uid = pafNormaliseUserId($user['id'] ?? '');
+
+function pafEsc($value): string
+{
+    return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+}
+
+if (!isset($_SESSION['selected_test_id'])) {
+    $tests = pafFetchTests($pdo);
+
+    if ($tests === []) {
         echo 'No tests are available right now.';
         exit();
     }
 
-    // If a test is selected via the form, store it in the session
-    if (isset($_POST['test_id'])) {
-        $_SESSION['selected_test_id'] = $_POST['test_id'];
-        header("Location: " . $_SERVER['PHP_SELF']);
+    if (isset($_POST['test_id']) && (int) $_POST['test_id'] > 0) {
+        $_SESSION['selected_test_id'] = (int) $_POST['test_id'];
+        header('Location: ' . $_SERVER['PHP_SELF']);
         exit();
     }
 
-    // Display the test selection popup
     echo '
     <!DOCTYPE html>
     <html lang="en">
@@ -59,7 +59,7 @@ if (!isset($_SESSION['selected_test_id'])) {
                                 <label for="test_id">Choose a test:</label>
                                 <select name="test_id" id="test_id" class="form-control" required>';
     foreach ($tests as $test) {
-        echo '<option value="' . $test['id'] . '">' . $test['test_name'] . '</option>';
+        echo '<option value="' . (int) $test['id'] . '">' . pafEsc($test['test_name']) . '</option>';
     }
     echo '              </select>
                             </div>
@@ -79,67 +79,51 @@ if (!isset($_SESSION['selected_test_id'])) {
     exit();
 }
 
-// Step 2: Check if the selected test has subjects already attempted
-$selected_test_id = $_SESSION['selected_test_id'];
+$selected_test_id = (int) ($_SESSION['selected_test_id'] ?? 0);
+$subjects = pafFetchTestSubjects($pdo, $selected_test_id);
 
-// Get all subjects for the selected test
-$subjectsQuery = $pdo->prepare("SELECT id FROM subjects WHERE test_id = :test_id");
-$subjectsQuery->execute([':test_id' => $selected_test_id]);
-$subjects = $subjectsQuery->fetchAll(PDO::FETCH_COLUMN);
-
-if (!$subjects) {
+if ($subjects === []) {
     unset($_SESSION['selected_test_id']);
     echo 'No subjects are configured for the selected test yet.';
     exit();
 }
 
-// Check if any subject for the selected test exists in the results table for the user
-$subjectsPlaceholders = implode(',', array_fill(0, count($subjects), '?'));
-$sql = "
-    SELECT * FROM results 
-    WHERE user_id = ? AND subject_id IN ($subjectsPlaceholders)
-";
-$stmt = $pdo->prepare($sql);
-$stmt->execute(array_merge([$uid], $subjects));
-$result = $stmt->fetch(PDO::FETCH_ASSOC);
+$subjectIds = array_map(static fn(array $subject): int => (int) $subject['id'], $subjects);
+$completedSubjectIds = pafCompletedSubjectIds($pdo, $uid, $subjectIds);
+$completedLookup = array_fill_keys($completedSubjectIds, true);
 
-// If the user has already attempted any subject, show a message
-if ($result) {
+if (count($completedSubjectIds) >= count($subjectIds)) {
     echo '
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Test Already Attempted</title>
+        <title>Test Already Completed</title>
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/popper.min.js"></script>
-        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
     </head>
     <body>
         <div class="container mt-5">
             <div class="alert alert-warning" role="alert">
-                You have already attempted this test. You cannot take it again.
+                You have already completed all subjects in this test.
             </div>
-            <!-- Clear Test Button -->
-            <button class="btn btn-warning" id="clearTestButton" data-user-id="' . $user['id'] . '">Clear Test</button>
+            <button class="btn btn-warning" id="clearTestButton" data-user-id="' . pafEsc($uid) . '" data-test-id="' . $selected_test_id . '">Clear Test</button>
+            <a class="btn btn-secondary ml-2" href="reset_test.php">Choose Another Test</a>
         </div>
-
         <script>
             $(document).ready(function() {
                 $("#clearTestButton").click(function() {
                     var userId = $(this).data("user-id");
-
-                    if (confirm("Are you sure you want to clear the test? This action will allow you to retake the test.")) {
+                    var testId = $(this).data("test-id");
+                    if (confirm("Are you sure you want to clear this test? This will allow you to take it again.")) {
                         $.ajax({
                             url: "reschedule_test.php",
                             method: "GET",
-                            data: { user_id: userId },
+                            data: { user_id: userId, test_id: testId },
                             success: function(response) {
                                 if (response === "success") {
-                                    alert("Test cleared successfully. You can now retake the test.");
-                                    location.reload();
+                                    window.location.href = "reset_test.php";
                                 } else {
                                     alert("Error clearing test: " + response);
                                 }
@@ -157,77 +141,113 @@ if ($result) {
     exit();
 }
 
-
-$subjectsQuery = $pdo->prepare("SELECT * FROM subjects WHERE test_id = :test_id");
-$subjectsQuery->bindParam(':test_id', $selected_test_id);
-$subjectsQuery->execute();
-$subjects = $subjectsQuery->fetchAll(PDO::FETCH_ASSOC);
-
-if (!$subjects) {
-    unset($_SESSION['selected_test_id']);
-    echo 'No subjects are available for the selected test.';
-    exit();
+$requestedSubjectId = isset($_GET['subject_id']) ? (int) $_GET['subject_id'] : 0;
+$firstPendingSubjectId = 0;
+foreach ($subjects as $subject) {
+    if (!isset($completedLookup[(int) $subject['id']])) {
+        $firstPendingSubjectId = (int) $subject['id'];
+        break;
+    }
 }
 
-$subject_id = isset($_GET['subject_id']) ? (int)$_GET['subject_id'] : $subjects[0]['id'];
+$validSubjectLookup = array_fill_keys($subjectIds, true);
+$subject_id = $requestedSubjectId > 0
+    && isset($validSubjectLookup[$requestedSubjectId])
+    && !isset($completedLookup[$requestedSubjectId])
+    ? $requestedSubjectId
+    : $firstPendingSubjectId;
 
-$timeQuery = $pdo->prepare("SELECT time_in_minutes FROM subjects WHERE id = :subject_id");
-$timeQuery->bindParam(':subject_id', $subject_id);
-$timeQuery->execute();
-$timeLimit = $timeQuery->fetchColumn();
-
-// Ensure time limit is set
-if ($timeLimit === false) {
-    echo "Error: Time limit not found.";
-    exit();
+$currentSubjectIndex = 0;
+foreach ($subjects as $index => $subject) {
+    if ((int) $subject['id'] === $subject_id) {
+        $currentSubjectIndex = $index;
+        break;
+    }
 }
 
-// Fetch questions for the selected subject
-$query = $pdo->prepare("SELECT * FROM questions WHERE subject_id = :subject_id ORDER BY sequence_number");
+$nextSubjectId = null;
+for ($i = $currentSubjectIndex + 1; $i < count($subjects); $i++) {
+    $candidateId = (int) $subjects[$i]['id'];
+    if (!isset($completedLookup[$candidateId])) {
+        $nextSubjectId = $candidateId;
+        break;
+    }
+}
+
+$isLastSubject = $nextSubjectId === null;
+$activeSubject = $subjects[$currentSubjectIndex];
+$nextSubjectName = '';
+foreach ($subjects as $subject) {
+    if ($nextSubjectId !== null && (int) $subject['id'] === $nextSubjectId) {
+        $nextSubjectName = (string) $subject['name'];
+        break;
+    }
+}
+$timeLimit = (int) ($activeSubject['time_in_minutes'] ?? 0);
+if ($timeLimit <= 0) {
+    $timeLimit = 1;
+}
+
+$query = $pdo->prepare('SELECT * FROM questions WHERE subject_id = :subject_id ORDER BY sequence_number ASC, id ASC');
 $query->bindParam(':subject_id', $subject_id);
 $query->execute();
 $questions = $query->fetchAll(PDO::FETCH_ASSOC);
 $totalQuestions = count($questions);
 
 if ($totalQuestions === 0) {
-    echo 'No questions are available for this subject yet.';
+    $emptySummary = pafUpsertSubjectResult($pdo, $uid, $subject_id);
+    pafUpsertOverallResult($pdo, $uid, $selected_test_id);
+
+    $continueButton = $nextSubjectId !== null
+        ? '<a class="btn btn-primary" href="?subject_id=' . $nextSubjectId . '&q=0">Continue To Next Subject</a>'
+        : '<a class="btn btn-primary" href="reset_test.php">Choose Another Test</a>';
+
+    echo '
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>No MCQs Available</title>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    </head>
+    <body style="background:#f7f9fc;">
+        <div class="container py-5">
+            <div class="card shadow-sm border-0" style="max-width:720px; margin:0 auto;">
+                <div class="card-body p-4 p-md-5 text-center">
+                    <h2 class="mb-3">' . pafEsc($activeSubject['name']) . '</h2>
+                    <p class="lead mb-2">No MCQs are available for this subject.</p>
+                    <p class="text-muted mb-4">This subject has been recorded and the test flow can continue safely.</p>
+                    <div class="d-flex justify-content-center flex-wrap" style="gap:12px;">
+                        ' . $continueButton . '
+                        <a class="btn btn-outline-secondary" href="userlogout.php">Logout</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>';
     exit();
 }
 
-// Handle current question index from GET request
-$currentQuestionIndex = isset($_GET['q']) ? (int)$_GET['q'] : 0;
+$questionIds = array_map(static fn(array $question): int => (int) $question['id'], $questions);
+$questionStatuses = pafFetchQuestionStatuses($pdo, $uid, $questionIds);
 
+$currentQuestionIndex = isset($_GET['q']) ? (int) $_GET['q'] : 0;
 if ($currentQuestionIndex < 0) {
     $currentQuestionIndex = 0;
 } elseif ($currentQuestionIndex >= $totalQuestions) {
     $currentQuestionIndex = $totalQuestions - 1;
 }
 
-// Retrieve the question ID for the current question
 $currentQuestion = $questions[$currentQuestionIndex] ?? null;
-$currentQuestionId = $currentQuestion['id'] ?? null;  // Ensure you get the question ID directly from the current question
+$currentQuestionId = $currentQuestion['id'] ?? null;
+$currentStatus = $currentQuestionId !== null && isset($questionStatuses[(int) $currentQuestionId])
+    ? $questionStatuses[(int) $currentQuestionId]
+    : ['answer' => '', 'mark_for_review' => 0, 'is_skipped' => 0];
 
-// Initialize $userAnswer and $markForReview
-$userAnswer = '';
-$markForReview = 0;
-
-// Fetch the user's previous answer for the current question using the question ID
-if ($currentQuestionId !== null) {
-    $sql = "SELECT answer, mark_for_review, is_skipped FROM answers WHERE user_id = ? AND question_id = ?";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$user['id'], $currentQuestionId]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    // Set the user's answer and mark_for_review status
-    $userAnswer = $row['answer'] ?? ''; // Default to empty string if no answer is found
-    $markForReview = $row['mark_for_review'] ?? 0; // Default to 0 if no review mark is found
-}
-
-// Determine the next subject ID and check if it's the last one
-$currentSubjectIndex = array_search($subject_id, array_column($subjects, 'id'));
-$isLastSubject = ($currentSubjectIndex === count($subjects) - 1);
-$nextSubjectId = !$isLastSubject ? $subjects[$currentSubjectIndex + 1]['id'] : null;
-
+$userAnswer = (string) ($currentStatus['answer'] ?? '');
+$markForReview = (int) ($currentStatus['mark_for_review'] ?? 0);
 ?>
 
 
@@ -249,17 +269,19 @@ $nextSubjectId = !$isLastSubject ? $subjects[$currentSubjectIndex + 1]['id'] : n
             font-size: 13px;
         }
 
-        .marked-for-review {
-            background-color: yellow;
+        .question-select option.review-question {
+            background-color: #fff3b0;
+            font-weight: 700;
         }
 
-        .skipped-question {
-            background-color: #ffcccc;
+        .question-select option.answered-question {
+            background-color: #dcfce7;
+            font-weight: 700;
         }
 
-        .option-row:hover {
-            background-color: #cce7ff;
-            transition: background-color 0.2s ease;
+        .question-select option.not-answered-question {
+            background-color: #f1f5f9;
+            color: #334155;
         }
 
         .hidden {
@@ -366,10 +388,10 @@ $nextSubjectId = !$isLastSubject ? $subjects[$currentSubjectIndex + 1]['id'] : n
 
                 <div class="scrollable-div" style="display:flex; align-items:center;">
                     <p style="font-size: 1.4rem;">
-                         <?php echo $currentQuestion['question_text']; ?> 
+                         <?php echo pafEsc($currentQuestion['question_text']); ?> 
                     </p>
                     <?php if (!empty($currentQuestion['question_image'])) { ?>
-                        <img src="<?php echo $currentQuestion['question_image']; ?>" alt="Question Image"
+                        <img src="<?php echo pafEsc($currentQuestion['question_image']); ?>" alt="Question Image"
                             style="width: 70px; height: 70px; padding-left:20px;">
                     <?php } ?>
                 </div>
@@ -380,7 +402,7 @@ $nextSubjectId = !$isLastSubject ? $subjects[$currentSubjectIndex + 1]['id'] : n
                         <input type="hidden" name="question_id"
                             value="<?php echo htmlspecialchars($currentQuestion['id']); ?>">
                         <input type="hidden" name="question_visited" value="1">
-                        <input type="hidden" name="no_answer_selected" value="1">
+                        <input type="hidden" name="no_answer_selected" id="no_answer_selected" value="<?php echo ($userAnswer !== '' && $userAnswer !== 'F') ? '0' : '1'; ?>">
 
                         <div class="options-container">
                             <?php
@@ -389,11 +411,11 @@ $nextSubjectId = !$isLastSubject ? $subjects[$currentSubjectIndex + 1]['id'] : n
                                 $optionText = isset($currentQuestion['option_' . strtolower($option)]) ? htmlspecialchars($currentQuestion['option_' . strtolower($option)]) : '';
                                 $optionImage = isset($currentQuestion['option_' . strtolower($option) . '_image']) ? htmlspecialchars($currentQuestion['option_' . strtolower($option) . '_image']) : '';
                             ?>
-                                <div class="option-row" onclick="selectOption('<?php echo $option; ?>')" style="cursor: pointer;">
+                                <div class="option-row">
                                     <div class="option-letter"><?php echo $option; ?></div>
                                     <div class="option-content">
                                         <input type="radio" name="answer" value="<?php echo $option; ?>"
-                                            id="<?php echo $option; ?>" <?php if (isset($userAnswer) && $userAnswer == $option)
+                                            id="answer_<?php echo $option; ?>" <?php if (isset($userAnswer) && $userAnswer == $option)
                                                                             echo 'checked'; ?>>
                                         <div style="font-size: 1.3rem;" class="option-text-image">
                                             <?php if (!empty($optionText)) { ?>
@@ -416,8 +438,8 @@ $nextSubjectId = !$isLastSubject ? $subjects[$currentSubjectIndex + 1]['id'] : n
                                     <label for="selection">No Selection</label>
                                 </div>
                                 <div class="mark-review">
-                                    <input type="checkbox" name="mark_for_review" value="1" <?php if (isset($markForReview) && $markForReview) echo 'checked'; ?>>
-                                    <label for="">MARK THE QUESTION FOR REVIEW</label>
+                                    <input type="checkbox" id="mark_for_review" name="mark_for_review" value="1" <?php if (isset($markForReview) && $markForReview) echo 'checked'; ?>>
+                                    <label for="mark_for_review">MARK THE QUESTION FOR REVIEW</label>
                                 </div>
                             </div>
 
@@ -523,12 +545,20 @@ $nextSubjectId = !$isLastSubject ? $subjects[$currentSubjectIndex + 1]['id'] : n
                 <div class="profile-section">
                     <div class="profile-picture">
                         <?php
-                        $picturePath = $user['picture'];
-                        if (strpos($picturePath, 'uploads/') === 0) {
+                        $picturePath = trim((string) ($user['picture'] ?? ''));
+                        if ($picturePath === '') {
+                            $picturePath = 'data:image/svg+xml;utf8,' . rawurlencode(
+                                '<svg xmlns="http://www.w3.org/2000/svg" width="110" height="110" viewBox="0 0 110 110">
+                                    <rect width="110" height="110" rx="18" fill="#eef3f8"/>
+                                    <circle cx="55" cy="40" r="20" fill="#a6b7ca"/>
+                                    <path d="M24 92c5-16 18-26 31-26s26 10 31 26" fill="#a6b7ca"/>
+                                </svg>'
+                            );
+                        } elseif (strpos($picturePath, 'uploads/') === 0) {
                             $picturePath = substr($picturePath, strlen('uploads/'));
                         }
                         ?>
-                        <img src="uploads/<?php echo htmlspecialchars($picturePath); ?>" alt="User Picture" class="user-picture">
+                        <img src="<?php echo strpos($picturePath, 'data:image') === 0 ? $picturePath : 'uploads/' . htmlspecialchars($picturePath); ?>" alt="User Picture" class="user-picture">
                     </div>
                     <div class="time-section">
                         <div class="time-box">
@@ -551,8 +581,7 @@ $nextSubjectId = !$isLastSubject ? $subjects[$currentSubjectIndex + 1]['id'] : n
                     </div>
                 </div>
 
-                <select class="question-select" name="move_to_question" id="move_to_question" onchange="location = this.value;">
-                    <option value="" disabled selected>Select question number</option>
+                <select class="question-select" name="move_to_question" id="move_to_question" onchange="navigateToQuestionIndex(this.value)">
                     <?php foreach ($questions as $index => $question) {
                         $questionId = $question['id'];
 
@@ -565,19 +594,18 @@ $nextSubjectId = !$isLastSubject ? $subjects[$currentSubjectIndex + 1]['id'] : n
                         $userAnswer = $result['answer'] ?? '';
                         $isSkipped = $result['is_skipped'] ?? 0;
                         
-                        error_log("Debug dropdown - Question $questionId: Answer='$userAnswer', Marked=$isMarkedForReview, Skipped=$isSkipped");
 
-                        $highlightStyle = '';
+                        $highlightStyle = 'class="not-answered-question"';
                         if ($isMarkedForReview == 1) {
-                            $highlightStyle = 'style="background-color: yellow; font-weight: bold;"';
-                        } elseif ($isSkipped == 1) {
-                            $highlightStyle = 'style="background-color: #ffcccc; font-weight: bold;"';
+                            $highlightStyle = 'class="review-question"';
+                        } elseif ($userAnswer !== '' && $userAnswer !== 'F') {
+                            $highlightStyle = 'class="answered-question"';
                         }
                         
-                        $icon = '';
-                        if ($userAnswer === 'F') {
-                            $icon = ' X';
-                        } elseif ($isMarkedForReview == 1) {
+                        $icon = '&#10005;';
+                        if ($isMarkedForReview == 1) {
+                            $icon = '&#9888;';
+                        } elseif ($userAnswer !== '' && $userAnswer !== 'F') {
                             $icon = ' ✎';
                         } elseif ($isSkipped == 1) {
                             $icon = ' ⚠';
@@ -586,25 +614,25 @@ $nextSubjectId = !$isLastSubject ? $subjects[$currentSubjectIndex + 1]['id'] : n
                         // Check if the question is the current one
                         $isSelected = ($currentQuestionIndex == $index) ? 'selected="selected"' : '';
                     ?>
-                        <option value="?subject_id=<?php echo htmlspecialchars($subject_id); ?>&q=<?php echo htmlspecialchars($index); ?>"
+                        <option value="<?php echo (int) $index; ?>"
                             <?php echo $isSelected; ?> <?php echo $highlightStyle; ?>>
-                            Question <?php echo ($index + 1) . $icon; ?>
+                            Question <?php echo ($index + 1) . ' ' . html_entity_decode($isMarkedForReview == 1 ? '&#9888;' : (($userAnswer !== '' && $userAnswer !== 'F') ? '&#10003;' : '&#10005;'), ENT_QUOTES, 'UTF-8'); ?>
                         </option>
                     <?php } ?>
                 </select>
 
                 <div class="navigation-icons">
                     <div class="icon_img">
-                        <a href="?subject_id=<?php echo $subject_id; ?>&q=0" onclick="saveAnswerAndNavigate(0)"><i class="fas fa-fast-backward"></i></a>
+                        <a href="?subject_id=<?php echo $subject_id; ?>&q=0" onclick="saveAnswerAndNavigate(0); return false;"><i class="fas fa-fast-backward"></i></a>
                     </div>
                     <div class="icon_img">
-                        <a href="?subject_id=<?php echo $subject_id; ?>&q=<?php echo max(0, $currentQuestionIndex - 1); ?>" onclick="saveAnswerAndNavigate(<?php echo max(0, $currentQuestionIndex - 1); ?>)"><i class="fas fa-step-backward"></i></a>
+                        <a href="?subject_id=<?php echo $subject_id; ?>&q=<?php echo max(0, $currentQuestionIndex - 1); ?>" onclick="saveAnswerAndNavigate(<?php echo max(0, $currentQuestionIndex - 1); ?>); return false;"><i class="fas fa-step-backward"></i></a>
                     </div>
                     <div class="icon_img">
-                        <a href="?subject_id=<?php echo $subject_id; ?>&q=<?php echo min($totalQuestions - 1, $currentQuestionIndex + 1); ?>" onclick="handleNext(<?php echo $totalQuestions; ?>, <?php echo $currentQuestionIndex; ?>)"><i class="fas fa-step-forward"></i></a>
+                        <a href="?subject_id=<?php echo $subject_id; ?>&q=<?php echo min($totalQuestions - 1, $currentQuestionIndex + 1); ?>" onclick="handleNext(<?php echo $totalQuestions; ?>, <?php echo $currentQuestionIndex; ?>); return false;"><i class="fas fa-step-forward"></i></a>
                     </div>
                     <div class="icon_img">
-                        <a href="?subject_id=<?php echo $subject_id; ?>&q=<?php echo $totalQuestions - 1; ?>" onclick="saveAnswerAndNavigate(<?php echo $totalQuestions - 1; ?>)"><i class="fas fa-fast-forward"></i></a>
+                        <a href="?subject_id=<?php echo $subject_id; ?>&q=<?php echo $totalQuestions - 1; ?>" onclick="saveAnswerAndNavigate(<?php echo $totalQuestions - 1; ?>); return false;"><i class="fas fa-fast-forward"></i></a>
                     </div>
                 </div>
 
@@ -679,23 +707,45 @@ $nextSubjectId = !$isLastSubject ? $subjects[$currentSubjectIndex + 1]['id'] : n
 </script>
 
 <script>
+    function syncNoAnswerSelection() {
+        const selectedAnswer = document.querySelector('input[name="answer"]:checked');
+        const noAnswerField = document.getElementById('no_answer_selected');
+
+        if (!noAnswerField) {
+            return;
+        }
+
+        if (!selectedAnswer || selectedAnswer.value === 'F') {
+            noAnswerField.value = '1';
+        } else {
+            noAnswerField.value = '0';
+        }
+    }
+
     function saveAnswerAndNavigate(nextQuestionIndex) {
+        syncNoAnswerSelection();
         var formData = $('#answerForm').serialize();
-        console.log('Form data being sent:', formData);
 
         $.ajax({
             url: 'save_answer.php',
             type: 'POST',
+            dataType: 'json',
             data: formData,
-            success: function(response) {
-                console.log(response);
+            success: function() {
                 window.location.href = '?subject_id=<?php echo $subject_id; ?>&q=' + nextQuestionIndex;
             },
-            error: function(xhr, status, error) {
-                console.log('Error saving answer: ' + error);
+            error: function() {
                 window.location.href = '?subject_id=<?php echo $subject_id; ?>&q=' + nextQuestionIndex;
             }
         });
+    }
+
+    function navigateToQuestionIndex(questionIndex) {
+        if (questionIndex === '' || questionIndex === null) {
+            return;
+        }
+
+        saveAnswerAndNavigate(questionIndex);
     }
 
     function handleNext(totalQuestions, currentQuestionIndex) {
@@ -712,25 +762,20 @@ $nextSubjectId = !$isLastSubject ? $subjects[$currentSubjectIndex + 1]['id'] : n
 
     $(document).ready(function() {
         $('input[name="answer"], input[name="mark_for_review"]').on('change', function() {
-            if ($(this).attr('name') === 'answer') {
-                $('input[name="no_answer_selected"]').val('0');
-            }
-            
+            syncNoAnswerSelection();
             var formData = $('#answerForm').serialize();
-            console.log('Auto-save form data:', formData);
 
             $.ajax({
                 url: 'save_answer.php',
                 type: 'POST',
+                dataType: 'json',
                 data: formData,
-                success: function(response) {
-                    console.log('Auto-save response:', response);
-                },
-                error: function(xhr, status, error) {
-                    console.log('Auto-save error:', error);
-                }
+                success: function() {},
+                error: function() {}
             });
         });
+
+        syncNoAnswerSelection();
     });
 </script>
 <script>
@@ -921,7 +966,7 @@ $nextSubjectId = !$isLastSubject ? $subjects[$currentSubjectIndex + 1]['id'] : n
                             // Show next test button for next subject
                             const nextTestLink = document.getElementById('modalNextTestLink');
                             nextTestLink.href = '#';
-                            nextTestLink.textContent = 'Start <?php echo htmlspecialchars($subjects[$currentSubjectIndex + 1]["name"]); ?> Test';
+                            nextTestLink.textContent = 'Start <?php echo pafEsc($nextSubjectName); ?> Test';
                             nextTestLink.onclick = function() {
                                 console.log('Navigating to next subject: <?php echo htmlspecialchars($nextSubjectId); ?>');
                                 // Close the subject results modal
@@ -1038,7 +1083,7 @@ $nextSubjectId = !$isLastSubject ? $subjects[$currentSubjectIndex + 1]['id'] : n
 </script>
 
 <script>
-    function saveAnswerAndNavigate(questionIndex) {
+    function saveAnswerAndNavigateLegacy(questionIndex) {
         var formData = $('#answerForm').serialize();
         console.log('Navigation button - Form data being sent:', formData);
 
@@ -1114,7 +1159,7 @@ $nextSubjectId = !$isLastSubject ? $subjects[$currentSubjectIndex + 1]['id'] : n
     });
 
     // Function to save the answer and navigate to a specific question
-    function saveAnswerAndNavigate(index) {
+    function saveAnswerAndNavigateFromKeyboard(index) {
         var formData = $('#answerForm').serialize();
         console.log('Keyboard navigation - Form data being sent:', formData);
 
@@ -1166,8 +1211,8 @@ $nextSubjectId = !$isLastSubject ? $subjects[$currentSubjectIndex + 1]['id'] : n
     }
 
     // Function to logout the user and redirect to home page
-         function logoutAndRedirect() {
-         window.location.href = 'logout.php';
+     function logoutAndRedirect() {
+         window.location.href = 'userlogout.php';
      }
 
      function showAnswerDetails(userId) {
@@ -1192,22 +1237,23 @@ $nextSubjectId = !$isLastSubject ? $subjects[$currentSubjectIndex + 1]['id'] : n
      }
 
      function selectOption(optionValue) {
-         document.getElementById(optionValue).checked = true;
+         const targetOption = document.getElementById('answer_' + optionValue);
+         if (!targetOption) {
+             return;
+         }
+
+         targetOption.checked = true;
          document.querySelector('input[name="no_answer_selected"]').value = '0';
          
          var formData = $('#answerForm').serialize();
-         console.log('Option selection - Form data being sent:', formData);
 
          $.ajax({
              url: 'save_answer.php',
              type: 'POST',
+             dataType: 'json',
              data: formData,
-             success: function(response) {
-                 console.log('Option selection response:', response);
-             },
-             error: function(xhr, status, error) {
-                 console.log('Option selection error:', error);
-             }
+             success: function() {},
+             error: function() {}
          });
      }
 

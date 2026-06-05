@@ -1,42 +1,97 @@
 <?php
-// reschedule_test.php
-include "config.php";
 
-// Check if user_id is provided
-if (isset($_GET['user_id'])) {
-    $userId = $_GET['user_id'];
+require_once __DIR__ . '/db_config.php';
+require_once __DIR__ . '/result_service.php';
 
-    // Begin a transaction to ensure atomicity
-    $conn->begin_transaction();
+$pdo = getPDOConnection();
+pafEnsureResultTables($pdo);
 
-    try {
-        // Step 1: Delete related records from the 'answers' table
-        $deleteAnswersSql = "DELETE FROM answers WHERE user_id = ?";
-        $stmt = $conn->prepare($deleteAnswersSql);
-        $stmt->bind_param("s", $userId); // Bind as a string for varchar user_id
-        if (!$stmt->execute()) {
-            throw new Exception('Error deleting from answers table.');
-        }
-        $stmt->close();
-
-        // Step 2: Delete the user's record from the 'results' table
-        $deleteResultsSql = "DELETE FROM results WHERE user_id = ?";
-        $stmt = $conn->prepare($deleteResultsSql);
-        $stmt->bind_param("s", $userId); // Bind as a string for varchar user_id
-        if (!$stmt->execute()) {
-            throw new Exception('Error deleting from results table.');
-        }
-        $stmt->close();
-
-        // Commit the transaction if both deletions succeed
-        $conn->commit();
-        echo 'success';
-    } catch (Exception $e) {
-        // Roll back the transaction if any deletion fails
-        $conn->rollback();
-        echo 'error: ' . $e->getMessage();
-    }
-} else {
+if (!isset($_GET['user_id'])) {
     echo 'invalid_request';
+    exit();
 }
-?>
+
+$userId = pafNormaliseUserId($_GET['user_id']);
+$testId = isset($_GET['test_id']) && (int) $_GET['test_id'] > 0 ? (int) $_GET['test_id'] : null;
+$shouldRedirect = isset($_GET['redirect']) && $_GET['redirect'] === '1';
+
+try {
+    $pdo->beginTransaction();
+
+    if ($testId !== null) {
+        $subjects = pafFetchTestSubjects($pdo, $testId);
+        $subjectIds = array_map(static fn(array $subject): int => (int) $subject['id'], $subjects);
+
+        if ($subjectIds !== []) {
+            $subjectPlaceholders = implode(',', array_fill(0, count($subjectIds), '?'));
+
+            $questionStatement = $pdo->prepare(
+                "SELECT id FROM questions WHERE subject_id IN ($subjectPlaceholders)"
+            );
+            $questionStatement->execute($subjectIds);
+            $questionIds = array_map('intval', array_column($questionStatement->fetchAll(PDO::FETCH_ASSOC), 'id'));
+
+            if ($questionIds !== []) {
+                $questionPlaceholders = implode(',', array_fill(0, count($questionIds), '?'));
+
+                $deleteAnswers = $pdo->prepare(
+                    "DELETE FROM answers WHERE user_id = ? AND question_id IN ($questionPlaceholders)"
+                );
+                $deleteAnswers->execute(array_merge([$userId], $questionIds));
+
+                $deleteQuestionDetails = $pdo->prepare(
+                    "DELETE FROM question_result_details WHERE user_id = ? AND question_id IN ($questionPlaceholders)"
+                );
+                $deleteQuestionDetails->execute(array_merge([$userId], $questionIds));
+            }
+
+            $deleteLegacyResults = $pdo->prepare(
+                "DELETE FROM results WHERE user_id = ? AND subject_id IN ($subjectPlaceholders)"
+            );
+            $deleteLegacyResults->execute(array_merge([$userId], $subjectIds));
+
+            $deleteSubjectSummaries = $pdo->prepare(
+                "DELETE FROM subject_result_summaries WHERE user_id = ? AND subject_id IN ($subjectPlaceholders)"
+            );
+            $deleteSubjectSummaries->execute(array_merge([$userId], $subjectIds));
+        }
+
+        $deleteOverall = $pdo->prepare('DELETE FROM overall_test_results WHERE user_id = ? AND test_id = ?');
+        $deleteOverall->execute([$userId, $testId]);
+    } else {
+        $deleteAnswers = $pdo->prepare('DELETE FROM answers WHERE user_id = ?');
+        $deleteAnswers->execute([$userId]);
+
+        $deleteLegacyResults = $pdo->prepare('DELETE FROM results WHERE user_id = ?');
+        $deleteLegacyResults->execute([$userId]);
+
+        $deleteQuestionDetails = $pdo->prepare('DELETE FROM question_result_details WHERE user_id = ?');
+        $deleteQuestionDetails->execute([$userId]);
+
+        $deleteSubjectSummaries = $pdo->prepare('DELETE FROM subject_result_summaries WHERE user_id = ?');
+        $deleteSubjectSummaries->execute([$userId]);
+
+        $deleteOverall = $pdo->prepare('DELETE FROM overall_test_results WHERE user_id = ?');
+        $deleteOverall->execute([$userId]);
+    }
+
+    $pdo->commit();
+
+    if ($shouldRedirect) {
+        header('Location: reset_test.php');
+        exit();
+    }
+
+    echo 'success';
+} catch (Throwable $exception) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
+    if ($shouldRedirect) {
+        header('Location: reset_test.php');
+        exit();
+    }
+
+    echo 'error: ' . $exception->getMessage();
+}

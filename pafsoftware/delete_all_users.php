@@ -1,5 +1,7 @@
 <?php
-include "config.php";
+require_once __DIR__ . '/db_config.php';
+require_once __DIR__ . '/result_service.php';
+
 session_start();
 
 if (!isset($_SESSION['admin_id'])) {
@@ -7,38 +9,36 @@ if (!isset($_SESSION['admin_id'])) {
     exit();
 }
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+$pdo = getPDOConnection();
+pafEnsureResultTables($pdo);
 
-    $conn->begin_transaction();
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $pdo->beginTransaction();
 
     try {
-       
-        $delete_answers_sql = "DELETE FROM answers"; 
-        if (!$conn->query($delete_answers_sql)) {
-            throw new Exception('Error deleting records from the answers table.');
+        $deleteStatements = [
+            'DELETE FROM answers',
+            'DELETE FROM results',
+            'DELETE FROM question_result_details',
+            'DELETE FROM subject_result_summaries',
+            'DELETE FROM overall_test_results',
+            'DELETE FROM useres',
+        ];
+
+        foreach ($deleteStatements as $sql) {
+            if ($pdo->exec($sql) === false) {
+                throw new RuntimeException('Failed to execute bulk delete.');
+            }
         }
 
-
-        $delete_results_sql = "DELETE FROM results"; 
-        if (!$conn->query($delete_results_sql)) {
-            throw new Exception('Error deleting records from the results table.');
+        $pdo->commit();
+        echo 'success';
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
         }
 
-        $delete_users_sql = "DELETE FROM useres";
-        if (!$conn->query($delete_users_sql)) {
-            throw new Exception('Error deleting users.');
-        }
-
-        $conn->commit();
-        echo 'success'; 
-
-    } catch (Exception $e) {
-     
-        $conn->rollback();
-        echo 'error: ' . $e->getMessage(); 
+        echo 'error: ' . $e->getMessage();
     }
 }
-
-// Close the connection
-$conn->close();
 ?>

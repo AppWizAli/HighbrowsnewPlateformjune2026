@@ -1,178 +1,322 @@
 <?php
-include "config.php";
+
 session_start();
 
-// Check if the admin is logged in
 if (!isset($_SESSION['admin_id'])) {
     header('Location: login.php');
     exit();
 }
 
-// Handle filtering by group
-$groupFilter = isset($_GET['group']) ? $_GET['group'] : '';
+require_once __DIR__ . '/db_config.php';
+require_once __DIR__ . '/result_service.php';
 
-// Fetch users with optional group filter
-$sql = "SELECT id, name, father_name, picture, group_name FROM useres";
+$pdo = getPDOConnection();
+pafEnsureResultTables($pdo);
 
-if ($groupFilter) {
-    $sql .= " WHERE group_name = ?";
+$search = trim((string) ($_GET['search'] ?? ''));
+$testId = isset($_GET['test_id']) && (int) $_GET['test_id'] > 0 ? (int) $_GET['test_id'] : 0;
+$subjectId = isset($_GET['subject_id']) && (int) $_GET['subject_id'] > 0 ? (int) $_GET['subject_id'] : 0;
+
+$tests = pafFetchTests($pdo);
+$subjects = $testId > 0 ? pafFetchTestSubjects($pdo, $testId) : $pdo->query(
+    'SELECT id, name, test_id FROM subjects ORDER BY name ASC, id ASC'
+)->fetchAll(PDO::FETCH_ASSOC);
+
+$params = [];
+if ($testId > 0) {
+    $sql = 'SELECT DISTINCT
+                u.id,
+                u.name,
+                u.father_name,
+                u.picture,
+                u.group_name,
+                o.test_id,
+                t.test_name,
+                o.overall_percentage,
+                o.result_status,
+                o.merit_position,
+                o.completed_at
+            FROM useres u
+            LEFT JOIN overall_test_results o ON o.user_id = u.id AND o.test_id = ?
+            LEFT JOIN tests t ON t.id = o.test_id';
+    $params[] = $testId;
+} else {
+    $sql = 'SELECT
+                u.id,
+                u.name,
+                u.father_name,
+                u.picture,
+                u.group_name,
+                o.test_id,
+                t.test_name,
+                o.overall_percentage,
+                o.result_status,
+                o.merit_position,
+                o.completed_at
+            FROM useres u
+            LEFT JOIN overall_test_results o
+                ON o.id = (
+                    SELECT o2.id
+                    FROM overall_test_results o2
+                    WHERE o2.user_id = u.id
+                    ORDER BY o2.completed_at DESC, o2.id DESC
+                    LIMIT 1
+                )
+            LEFT JOIN tests t ON t.id = o.test_id';
 }
 
-$stmt = $conn->prepare($sql);
-
-if ($groupFilter) {
-    $stmt->bind_param("s", $groupFilter);
+if ($subjectId > 0) {
+    $sql .= ' LEFT JOIN subject_result_summaries srs ON srs.user_id = u.id AND srs.subject_id = ?';
+    $params[] = $subjectId;
 }
 
-$stmt->execute();
-$result = $stmt->get_result();
+$conditions = [];
+if ($search !== '') {
+    $conditions[] = '(u.id LIKE ? OR u.name LIKE ? OR u.father_name LIKE ? OR u.group_name LIKE ?)';
+    $searchLike = '%' . $search . '%';
+    array_push($params, $searchLike, $searchLike, $searchLike, $searchLike);
+}
+
+if ($subjectId > 0) {
+    $conditions[] = 'srs.subject_id IS NOT NULL';
+}
+
+if ($conditions !== []) {
+    $sql .= ' WHERE ' . implode(' AND ', $conditions);
+}
+
+$sql .= ' ORDER BY u.name ASC, u.id ASC';
+
+$statement = $pdo->prepare($sql);
+$statement->execute($params);
+$students = $statement->fetchAll(PDO::FETCH_ASSOC);
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panel</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <title>Students and Results</title>
     <link rel="stylesheet" href="css/style1.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 </head>
 <body>
-<div class="main">
-    <?php include "header.php"; ?>
-    <div class="main-content" id="main-content">
-        <header>
-            <h1>Welcome to the Admin Panel</h1>
-        </header>
+    <div class="main">
+        <?php include __DIR__ . '/header.php'; ?>
 
-        <!-- Delete All Users Button -->
-        <button class="btn btn-danger mb-3" id="deleteAllUsers">Delete All Users</button>
+        <main class="main-content">
+            <section class="page-hero">
+                <div>
+                    <h1>Students</h1>
+                    <p>Search students, filter by test or subject, and open detailed reports.</p>
+                </div>
+                <a class="btn btn-secondary" href="admin1_pannel.php">Back To Dashboard</a>
+            </section>
 
-        <!-- Users Table -->
-        <table class="table table-bordered table-hover">
-            <thead class="thead-dark">
-                <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Father's Name</th>
-                    <th>Picture</th>
-                    <th>Group Name</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php
-                if ($result->num_rows > 0) {
-                    while ($row = $result->fetch_assoc()) {
-                        echo "<tr>";
-                        echo "<td>" . htmlspecialchars($row['id']) . "</td>";
-                        echo "<td>" . htmlspecialchars($row['name']) . "</td>";
-                        echo "<td>" . htmlspecialchars($row['father_name']) . "</td>";
-                        echo "<td><img src='" . htmlspecialchars($row['picture']) . "' class='img-fluid' style='max-width: 100px;'></td>";
-                        echo "<td>" . htmlspecialchars($row['group_name']) . "</td>";
-                        echo "<td>";
-                        // Show Result button
-                        echo "<button type='button' class='btn btn-info btn-sm show-result' data-id='" . htmlspecialchars($row['id']) . "'>Show Result</button> ";
-                        // Delete User button
-                        echo "<button type='button' class='btn btn-danger btn-sm delete-user' data-id='" . htmlspecialchars($row['id']) . "'>Delete</button> ";
-                        // Reschedule Test button
-                        echo "<button type='button' class='btn btn-warning btn-sm reschedule-test' data-id='" . htmlspecialchars($row['id']) . "'>Reschedule Test</button>";
-                        echo "</td>";
-                        echo "</tr>";
-                    }
-                } else {
-                    echo "<tr><td colspan='6' class='text-center'>No users found</td></tr>";
-                }
-                ?>
-            </tbody>
-        </table>
+            <section class="panel-card">
+                <div class="panel-head">
+                    <div>
+                        <h2>Filters</h2>
+                        <p>Use one or more filters to narrow the report list.</p>
+                    </div>
+                </div>
+                <form method="GET" class="toolbar">
+                    <div class="filters-grid">
+                        <div>
+                            <label class="label" for="search">Search Student</label>
+                            <input id="search" type="search" name="search" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" placeholder="ID, name, father name, group">
+                        </div>
+                        <div>
+                            <label class="label" for="test_id">Filter By Test</label>
+                            <select id="test_id" name="test_id">
+                                <option value="">All tests</option>
+                                <?php foreach ($tests as $test): ?>
+                                    <option value="<?= (int) $test['id'] ?>" <?= $testId === (int) $test['id'] ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($test['test_name'], ENT_QUOTES, 'UTF-8') ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label" for="subject_id">Filter By Subject</label>
+                            <select id="subject_id" name="subject_id">
+                                <option value="">All subjects</option>
+                                <?php foreach ($subjects as $subject): ?>
+                                    <option value="<?= (int) $subject['id'] ?>" <?= $subjectId === (int) $subject['id'] ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($subject['name'], ENT_QUOTES, 'UTF-8') ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="toolbar-row">
+                        <div class="muted"><?= count($students) ?> student(s) found</div>
+                        <div class="action-row">
+                            <button class="btn btn-primary" type="submit">Apply Filters</button>
+                            <a class="btn btn-secondary" href="show-users.php">Reset</a>
+                        </div>
+                    </div>
+                </form>
+            </section>
+
+            <section class="panel-card">
+                <div class="panel-head">
+                    <div>
+                        <h2>Student List</h2>
+                        <p>Open full test reports or manage individual students.</p>
+                    </div>
+                </div>
+
+                <?php if ($students === []): ?>
+                    <div class="empty-state">No students matched the selected filters.</div>
+                <?php else: ?>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Student</th>
+                                    <th>Group</th>
+                                    <th>Latest Test</th>
+                                    <th>Overall</th>
+                                    <th>Status</th>
+                                    <th>Merit</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($students as $student): ?>
+                                    <?php
+                                    $picture = trim((string) ($student['picture'] ?? ''));
+                                    if ($picture === '') {
+                                        $picture = 'data:image/svg+xml;utf8,' . rawurlencode(
+                                            '<svg xmlns="http://www.w3.org/2000/svg" width="46" height="46" viewBox="0 0 46 46">
+                                                <rect width="46" height="46" rx="14" fill="#e8eef5"/>
+                                                <circle cx="23" cy="17" r="9" fill="#9db1c7"/>
+                                                <path d="M9 39c2-8 8-13 14-13s12 5 14 13" fill="#9db1c7"/>
+                                            </svg>'
+                                        );
+                                    }
+                                    ?>
+                                    <tr>
+                                        <td>
+                                            <div class="student-cell">
+                                                <img src="<?= htmlspecialchars($picture, ENT_QUOTES, 'UTF-8') ?>" alt="Student picture">
+                                                <div>
+                                                    <strong><?= htmlspecialchars($student['name'] ?: $student['id'], ENT_QUOTES, 'UTF-8') ?></strong>
+                                                    <div class="muted"><?= htmlspecialchars($student['id'], ENT_QUOTES, 'UTF-8') ?></div>
+                                                    <?php if (!empty($student['father_name'])): ?>
+                                                        <div class="muted"><?= htmlspecialchars($student['father_name'], ENT_QUOTES, 'UTF-8') ?></div>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td><?= htmlspecialchars((string) ($student['group_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?: 'N/A' ?></td>
+                                        <td><?= htmlspecialchars((string) ($student['test_name'] ?? 'No completed test'), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= $student['overall_percentage'] !== null ? number_format((float) $student['overall_percentage'], 2) . '%' : 'N/A' ?></td>
+                                        <td>
+                                            <?php if (!empty($student['result_status'])): ?>
+                                                <span class="badge <?= strtolower((string) $student['result_status']) === 'pass' ? 'pass' : 'fail' ?>">
+                                                    <?= htmlspecialchars((string) $student['result_status'], ENT_QUOTES, 'UTF-8') ?>
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="muted">Pending</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td><?= !empty($student['merit_position']) ? '#' . (int) $student['merit_position'] : 'N/A' ?></td>
+                                        <td>
+                                            <div class="action-row">
+                                                <button
+                                                    class="btn btn-primary"
+                                                    type="button"
+                                                    onclick="openResultModal('<?= htmlspecialchars($student['id'], ENT_QUOTES, 'UTF-8') ?>', '<?= (int) ($testId ?: ($student['test_id'] ?? 0)) ?>')"
+                                                >
+                                                    View Report
+                                                </button>
+                                                <button
+                                                    class="btn btn-warning"
+                                                    type="button"
+                                                    onclick="rescheduleTest('<?= htmlspecialchars($student['id'], ENT_QUOTES, 'UTF-8') ?>', '<?= (int) ($testId ?: 0) ?>')"
+                                                >
+                                                    Reschedule
+                                                </button>
+                                                <button
+                                                    class="btn btn-danger"
+                                                    type="button"
+                                                    onclick="deleteUser('<?= htmlspecialchars($student['id'], ENT_QUOTES, 'UTF-8') ?>')"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </section>
+        </main>
     </div>
-</div>
 
-<!-- Modal for showing results -->
-<div class="modal fade" id="resultModal" tabindex="-1" aria-labelledby="resultModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="resultModalLabel">User Results</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <!-- Results will be dynamically injected here -->
-                <div id="resultTable">
-                    <!-- Loading message -->
-                    <p>Loading results...</p>
+    <div class="modal fade" id="resultModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Student Result Report</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body" id="resultModalBody">
+                    <div class="empty-state">Loading report...</div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
-<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        function openResultModal(userId, testId) {
+            $('#resultModal').modal('show');
+            $('#resultModalBody').html('<div class="empty-state">Loading report...</div>');
 
-<script>
-$(document).ready(function() {
-    // Handle the Show Result button click
-    $('.show-result').click(function() {
-        var userId = $(this).data('id'); // Get the user ID
-        console.log(userId);
-        $('#resultModal').modal('show'); // Show the modal
-
-        // Fetch and display the result via AJAX
-        $.ajax({
-            url: 'fetch_results.php', // Backend script to fetch the results
-            method: 'GET',
-            data: { user_id: userId },
-            success: function(response) {
-                $('#resultTable').html(response); // Inject the result into the modal
-            },
-            error: function() {
-                $('#resultTable').html('<p>Error fetching results.</p>'); // Error handling
+            const data = { user_id: userId };
+            if (testId && Number(testId) > 0) {
+                data.test_id = testId;
             }
-        });
-    });
 
-    // Handle the Delete User button click
-    $('.delete-user').click(function() {
-        var userId = $(this).data('id');
-
-        if (confirm('Are you sure you want to delete this user?')) {
             $.ajax({
-                url: 'delete_useres.php', // Backend script to delete the user
+                url: 'fetch_results.php',
                 method: 'GET',
-                data: { user_id: userId },
+                data: data,
                 success: function(response) {
-                    if (response === 'success') {
-                        alert('User deleted successfully.');
-                        location.reload(); // Reload the page to reflect changes
-                    } else {
-                        alert('Error deleting user: ' + response); // Display error message
-                    }
+                    $('#resultModalBody').html(response);
                 },
                 error: function() {
-                    alert('Error deleting user.');
+                    $('#resultModalBody').html('<div class="empty-state">Unable to load the result report.</div>');
                 }
             });
         }
-    });
 
-    // Handle the Reschedule Test button click
-    $('.reschedule-test').click(function() {
-        var userId = $(this).data('id');
-console.log(userId);
-        if (confirm('Are you sure you want to reschedule this test? The user will be able to take the test again.')) {
+        function rescheduleTest(userId, testId) {
+            if (!confirm('Reschedule this student\'s test results?')) {
+                return;
+            }
+
+            const data = { user_id: userId };
+            if (testId && Number(testId) > 0) {
+                data.test_id = testId;
+            }
+
             $.ajax({
-                url: 'reschedule_test.php', // Backend script to delete the user's test result
+                url: 'reschedule_test.php',
                 method: 'GET',
-                data: { user_id: userId },
+                data: data,
                 success: function(response) {
                     if (response === 'success') {
-                        alert('Test rescheduled successfully. The user can now attempt the test again.');
-                        location.reload(); // Reload the page to reflect changes
+                        window.location.reload();
                     } else {
                         alert('Error rescheduling test: ' + response);
                     }
@@ -182,29 +326,28 @@ console.log(userId);
                 }
             });
         }
-    });
 
-    // Handle the Delete All Users button click
-    $('#deleteAllUsers').click(function() {
-        if (confirm('Are you sure you want to delete all users? This action cannot be undone.')) {
+        function deleteUser(userId) {
+            if (!confirm('Delete this student and all linked result records?')) {
+                return;
+            }
+
             $.ajax({
-                url: 'delete_all_users.php', // Backend script to delete all users
-                method: 'POST',
+                url: 'delete_useres.php',
+                method: 'GET',
+                data: { user_id: userId },
                 success: function(response) {
-                    if (response == 'success') {
-                        alert('All users deleted successfully.');
-                        location.reload(); // Reload the page to reflect changes
+                    if (response === 'success') {
+                        window.location.reload();
                     } else {
-                        alert('Error deleting users.');
+                        alert('Error deleting user: ' + response);
                     }
                 },
                 error: function() {
-                    alert('Error deleting users.');
+                    alert('Error deleting user.');
                 }
             });
         }
-    });
-});
-</script>
+    </script>
 </body>
 </html>

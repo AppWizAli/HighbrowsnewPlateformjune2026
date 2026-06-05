@@ -1,54 +1,57 @@
 <?php
+
 header('Content-Type: application/json');
 
-require_once 'db_config.php';
+require_once __DIR__ . '/db_config.php';
+require_once __DIR__ . '/result_service.php';
 
 $pdo = getPDOConnection();
+pafEnsureResultTables($pdo);
 
-// Check if POST data is available
-if (isset($_POST['user_id'], $_POST['subject_id'])) {
-    $user_id = (int) $_POST['user_id'];
-    $subject_id = (int) $_POST['subject_id'];
-
-    try {
-        // Get total questions for this subject
-        $sql = "SELECT COUNT(*) as total_questions FROM questions WHERE subject_id = ?";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$subject_id]);
-        $totalQuestions = $stmt->fetchColumn();
-
-        // Get correct answers for this subject
-        $sql = "SELECT COUNT(*) as correct_answers 
-                FROM answers a 
-                JOIN questions q ON a.question_id = q.id 
-                WHERE a.user_id = ? AND q.subject_id = ? AND a.answer = q.correct_answer";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$user_id, $subject_id]);
-        $correctAnswers = $stmt->fetchColumn();
-
-        // Calculate percentage
-        $percentage = $totalQuestions > 0 ? round(($correctAnswers / $totalQuestions) * 100, 2) : 0;
-
-        // Get subject name
-        $sql = "SELECT name FROM subjects WHERE id = ?";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$subject_id]);
-        $subjectName = $stmt->fetchColumn();
-
-        $response = [
-            'success' => true,
-            'subject_name' => $subjectName,
-            'total_questions' => $totalQuestions,
-            'correct_answers' => $correctAnswers,
-            'percentage' => $percentage
-        ];
-
-        echo json_encode($response);
-
-    } catch (PDOException $e) {
-        echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
-    }
-} else {
-    echo json_encode(['error' => 'Missing required POST data']);
+if (!isset($_POST['user_id'], $_POST['subject_id'])) {
+    echo json_encode([
+        'success' => false,
+        'error' => 'Missing required POST data.',
+    ]);
+    exit();
 }
-?>
+
+$userId = pafNormaliseUserId($_POST['user_id']);
+$subjectId = (int) $_POST['subject_id'];
+
+try {
+    $pdo->beginTransaction();
+
+    $summary = pafUpsertSubjectResult($pdo, $userId, $subjectId);
+    $overall = pafUpsertOverallResult($pdo, $userId, $summary['test_id']);
+
+    $pdo->commit();
+
+    echo json_encode([
+        'success' => true,
+        'student_id' => $userId,
+        'student_name' => (string) ($summary['student']['name'] ?? ''),
+        'test_id' => $summary['test_id'],
+        'test_name' => $summary['test_name'],
+        'subject_id' => $summary['subject_id'],
+        'subject_name' => $summary['subject_name'],
+        'total_questions' => $summary['total_questions'],
+        'attempted_questions' => $summary['attempted_questions'],
+        'correct_answers' => $summary['correct_answers'],
+        'wrong_answers' => $summary['wrong_answers'],
+        'not_answered_questions' => $summary['not_answered_questions'],
+        'review_questions' => $summary['review_questions'],
+        'percentage' => $summary['percentage'],
+        'subject_result' => $summary['subject_result'],
+        'overall_result' => $overall,
+    ]);
+} catch (Throwable $exception) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
+    echo json_encode([
+        'success' => false,
+        'error' => 'Unable to save subject result: ' . $exception->getMessage(),
+    ]);
+}
