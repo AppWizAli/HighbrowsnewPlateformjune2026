@@ -46,6 +46,11 @@ class Handler extends ExceptionHandler
         $this->reportable(function (Throwable $e) {
             if (app()->bound('request')) {
                 $request = request();
+                $sessionId = null;
+
+                if (method_exists($request, 'hasSession') && $request->hasSession()) {
+                    $sessionId = $request->session()->getId();
+                }
 
                 logger()->error('Highbrows request exception', [
                     'message' => $e->getMessage(),
@@ -56,7 +61,7 @@ class Handler extends ExceptionHandler
                     'route_name' => optional($request->route())->getName(),
                     'ip' => $request->ip(),
                     'user_id' => optional($request->user())->id,
-                    'session_id' => optional($request->session())->getId(),
+                    'session_id' => $sessionId,
                     'input' => $request->except(['password', 'password_confirmation', 'current_password']),
                 ]);
             }

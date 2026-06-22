@@ -5,20 +5,19 @@
   ==================================*/
   /*
     01. On Load Function
-    02. Preloader
-    03. Mobile Menu Active
-    04. Sticky fix
-    05. Scroll To Top
-    06. Set Background Image
-    07. Global Slider
-    08. Ajax Contact Form
-    09. Search Box Popup
-    10. Magnific Popup
-    11. Testimonial Nav
-    12. WOW.js Animation
-    13. Accordion Class Toggle
-    14. Shape Mockup
-    15. Count Down
+    02. Mobile Menu Active
+    03. Sticky fix
+    04. Scroll To Top
+    05. Set Background Image
+    06. Global Slider
+    07. Ajax Contact Form
+    08. Search Box Popup
+    09. Magnific Popup
+    10. Testimonial Nav
+    11. WOW.js Animation
+    12. Accordion Class Toggle
+    13. Shape Mockup
+    14. Count Down
   */
   /*=================================
       JS Index End
@@ -26,25 +25,7 @@
   /*
 
   /*---------- 01. On Load Function ----------*/
-  $(window).on('load', function () {
-    $('.preloader').fadeOut();
-  });
-
-
-
-  /*---------- 02. Preloader ----------*/
-  if ($('.preloader').length > 0) {
-    $('.preloaderCls').each(function () {
-      $(this).on('click', function (e) {
-        e.preventDefault();
-        $('.preloader').css('display', 'none');
-      })
-    });
-  };
-
-
-
-  /*---------- 03. Mobile Menu Active ----------*/
+  /*---------- 02. Mobile Menu Active ----------*/
   $.fn.vsmobilemenu = function (options) {
     var opt = $.extend({
       menuToggleBtn: '.vs-menu-toggle',

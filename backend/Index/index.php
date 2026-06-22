@@ -97,7 +97,6 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     </style>
 </head>
 <body>
-    <?php include 'preloader.php'; ?>
 <?php include '../Includes/sidebar.php'; ?>
 
 

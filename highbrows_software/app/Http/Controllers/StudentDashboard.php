@@ -13,6 +13,8 @@ use App\Models\User;
 use Auth;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
 
 class StudentDashboard extends Controller
@@ -23,13 +25,83 @@ class StudentDashboard extends Controller
     }
     
     public function index(){
-        $terms = StudentCondition::latest()->first();
+        $terms = null;
+
+        try {
+            $terms = StudentCondition::latest()->first();
+        } catch (\Throwable $exception) {
+            Log::warning('Student conditions unavailable for dashboard', [
+                'user_id' => Auth::id(),
+                'exception_class' => get_class($exception),
+                'message' => $exception->getMessage(),
+            ]);
+        }
         $user_id = Auth::id();
-        $admin_done=User::where('usertype','user')
-        ->where('id', $user_id)
-        ->doesntHave('admissions')->first();
+        $hasAdmissionsTable = Schema::hasTable('admissions');
+        $admin_done = null;
+
+        if ($hasAdmissionsTable) {
+            $admin_done = User::where('usertype', 'user')
+                ->where('id', $user_id)
+                ->doesntHave('admissions')
+                ->first();
+        }
         $classes=Clase::all();
         $colleges=College::all();
+        $admissionId = null;
+        if ($hasAdmissionsTable) {
+            $admissionId = Admission::where('user_id', $user_id)->latest('id')->value('id');
+        }
+        $marksSummary = [
+            ['subject' => 'Math', 'obtained_marks' => 0, 'total_marks' => 0],
+            ['subject' => 'English', 'obtained_marks' => 0, 'total_marks' => 0],
+            ['subject' => 'Urdu', 'obtained_marks' => 0, 'total_marks' => 0],
+        ];
+        $attendanceSummary = StudentAttendance::calculateMonthlyAttendance($user_id);
+        $monthlyFeeStatus = 'pending';
+        $dashboardUserName = Auth::user()->name ?? Auth::user()->username ?? 'Student';
+
+        if ($admissionId) {
+            $latestExamId = \App\Models\Result::where('student_id', $admissionId)
+                ->orderByDesc('exam_id')
+                ->value('exam_id');
+
+            if ($latestExamId) {
+                $marks = \App\Models\Result::with(['subject', 'exam'])
+                    ->where('student_id', $admissionId)
+                    ->where('exam_id', $latestExamId)
+                    ->get();
+
+                $keywords = ['math', 'english', 'urdu'];
+                $filteredResults = $marks->filter(function ($result) use ($keywords) {
+                    $subjectName = strtolower(optional($result->subject)->subj_name ?? '');
+
+                    return collect($keywords)->contains(fn ($keyword) => str_contains($subjectName, $keyword));
+                })->values();
+
+                foreach ($filteredResults as $index => $result) {
+                    if (!isset($marksSummary[$index])) {
+                        break;
+                    }
+
+                    $marksSummary[$index] = [
+                        'subject' => optional($result->subject)->subj_name ?? $marksSummary[$index]['subject'],
+                        'obtained_marks' => $result->obt_marks ?? 0,
+                        'total_marks' => $result->total ?? 0,
+                    ];
+                }
+            }
+        }
+
+        $currentMonth = Carbon::now()->format('Y-m');
+        $monthlyFee = MonthlyFee::where(function ($query) use ($user_id) {
+            $query->where('student_id', $user_id)
+                ->orWhere('user_id', $user_id);
+        })->where('created_at', 'like', $currentMonth . '%')->first();
+
+        if ($monthlyFee) {
+            $monthlyFeeStatus = $monthlyFee->status ?: 'pending';
+        }
         // dd( $admin_done);
         // Retrieve the fee status for the authenticated user where status is 'paid'
         $fee = MonthlyFee::where('status', 'paid')
@@ -37,10 +109,16 @@ class StudentDashboard extends Controller
                         ->first();
 
                         View::share('fee', $fee);
-                        if($fee && $fee->status==='paid' && $admin_done){
+                        if($hasAdmissionsTable && $fee && $fee->status==='paid' && $admin_done){
                      return view('admissions', compact('terms','user_id','classes','colleges'));
                         }
-return view('student.index', compact('terms'));
+return view('student.index', compact(
+    'terms',
+    'marksSummary',
+    'attendanceSummary',
+    'monthlyFeeStatus',
+    'dashboardUserName'
+));
     }
     
     

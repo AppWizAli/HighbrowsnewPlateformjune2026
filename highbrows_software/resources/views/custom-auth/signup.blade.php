@@ -59,16 +59,6 @@
 
 
 
-    <!--==============================
-     Preloader
-    ==============================-->
-    <div class="preloader  ">
-        <button class="vs-btn preloaderCls">Cancel Preloader </button>
-        <div class="preloader-inner">
-            <div class="loader"></div>
-        </div>
-    </div>
-
 <!-- Where you want the navbar to appear -->
  <!-- PHP Include Navbar -->
 
@@ -151,15 +141,15 @@
 <div class="form-group position-relative mb-3">
     <select name="grade" id="grade" class="form-select ps-5" required>
         <option value="" disabled {{ old('grade') ? '' : 'selected' }}>Select Grade or Course</option>
-        <option value="Grade 5" {{ old('grade') == 'Grade 5' ? 'selected' : '' }}>Grade 5</option>
-        <option value="Grade 6" {{ old('grade') == 'Grade 6' ? 'selected' : '' }}>Grade 6</option>
-        <option value="Grade 7" {{ old('grade') == 'Grade 7' ? 'selected' : '' }}>Grade 7</option>
-        <option value="Grade 8" {{ old('grade') == 'Grade 8' ? 'selected' : '' }}>Grade 8</option>
-        <option value="Grade 9" {{ old('grade') == 'Grade 9' ? 'selected' : '' }}>Grade 9</option>
-        <option value="Grade 10" {{ old('grade') == 'Grade 10' ? 'selected' : '' }}>Grade 10</option>
-        <option value="Grade 11" {{ old('grade') == 'Grade 11' ? 'selected' : '' }}>Grade 11</option>
-        <option value="Grade 12" {{ old('grade') == 'Grade 12' ? 'selected' : '' }}>Grade 12</option>
-        <option value="Grade Issb" {{ old('grade') == 'Grade Issb' ? 'selected' : '' }}> Grade Issb</option>
+        <option value="5" {{ old('grade') == '5' ? 'selected' : '' }}>Grade 5</option>
+        <option value="6" {{ old('grade') == '6' ? 'selected' : '' }}>Grade 6</option>
+        <option value="7" {{ old('grade') == '7' ? 'selected' : '' }}>Grade 7</option>
+        <option value="8" {{ old('grade') == '8' ? 'selected' : '' }}>Grade 8</option>
+        <option value="9" {{ old('grade') == '9' ? 'selected' : '' }}>Grade 9</option>
+        <option value="10" {{ old('grade') == '10' ? 'selected' : '' }}>Grade 10</option>
+        <option value="11" {{ old('grade') == '11' ? 'selected' : '' }}>Grade 11</option>
+        <option value="12" {{ old('grade') == '12' ? 'selected' : '' }}>Grade 12</option>
+        <option value="13" {{ old('grade') == '13' ? 'selected' : '' }}>Grade Issb</option>
     </select>
     <i class="fas fa-graduation-cap position-absolute" 
        style="top: 50%; left: 15px; transform: translateY(-50%); color: gray; pointer-events: none;"></i>

@@ -23,7 +23,7 @@
             @if (session('message'))
                                 <div class="alert alert-danger mt-3">{{ session('message') }}</div>
                             @endif
-            <h3 class="mt-5">Welcome, {{ Auth::user()->name }}</h3>
+            <h3 class="mt-5">Welcome, {{ $dashboardUserName }}</h3>
             <ol class="breadcrumb mb-4">
                 <li class="breadcrumb-item active">Dashboard</li>
             </ol>
@@ -38,38 +38,9 @@
                             <div class="card mb-4" style="background-color: #4747A1; color: white;">
                                 <div class="card-body">Marks</div>
                                 <div class="card-footer">
-                                    @php
-                                    
-                                   $admissionId = \App\Models\Admission::where('user_id', Auth::id())
-    ->latest('id')
-    ->value('id');
-$latestExamId = \App\Models\Result::where('student_id', $admissionId)
-    ->orderByDesc('exam_id')
-    ->value('exam_id');
-
-// Step 2: Get all results for that exam
-$marks = \App\Models\Result::with(['subject', 'exam'])
-    ->where('student_id', $admissionId)
-    ->where('exam_id', $latestExamId)
-    ->get();
- $keywords = ['math', 'english', 'urdu'];
-$filteredResults = $marks->filter(function ($result) use ($keywords) {
-    return collect($keywords)->contains(fn($kw) =>
-        str_contains(strtolower($result->subject->subj_name), $kw)
-    );
-});
-$subjectWise = $filteredResults->map(function ($result) {
-    return [
-        'subject' => $result->subject->subj_name,
-        'obtained_marks' => $result->obt_marks,
-        'total_marks' => $result->total, // assuming this exists
-    ];
-});
-
-        @endphp
-        <p>{{$subjectWise[0]['subject'] ?? 'Math'}}:{{ number_format($subjectWise[0]['obtained_marks'] ?? 0,0) }}/{{ number_format($subjectWise[0]['total_marks'] ?? 0,0) }}<br>
-                                    {{ $subjectWise[1]['subject'] ?? 'English' }}: {{ number_format($subjectWise[1]['obtained_marks'] ?? 0, 0) }}/{{ number_format($subjectWise[1]['total_marks'] ?? 0, 0) }}<br>
-                                    {{ $subjectWise[2]['subject'] ?? 'Urdu' }}: {{ number_format($subjectWise[2]['obtained_marks'] ?? 0, 0) }}/{{ number_format($subjectWise[2]['total_marks'] ?? 0, 0) }}</p>
+        <p>{{ $marksSummary[0]['subject'] }}:{{ number_format($marksSummary[0]['obtained_marks'],0) }}/{{ number_format($marksSummary[0]['total_marks'],0) }}<br>
+                                    {{ $marksSummary[1]['subject'] }}: {{ number_format($marksSummary[1]['obtained_marks'], 0) }}/{{ number_format($marksSummary[1]['total_marks'], 0) }}<br>
+                                    {{ $marksSummary[2]['subject'] }}: {{ number_format($marksSummary[2]['obtained_marks'], 0) }}/{{ number_format($marksSummary[2]['total_marks'], 0) }}</p>
 
                                 </div>
                             </div>
@@ -79,29 +50,14 @@ $subjectWise = $filteredResults->map(function ($result) {
                         <div class="col-md-6">
                             <div class="card mb-4" style="background-color: #8F8EED; color: white;">
                                 <div class="card-body"> This Month's Attendance (till Today)</div>
-                                <div class="card-footer">             @php
-                                    $total = \App\Models\StudentAttendance::calculateMonthlyAttendance(Auth::user()->id);
-
-                                @endphp
-                                {{ number_format($total['present'],0) }}/{{ number_format($total['total'],0) }}</div>
+                                <div class="card-footer">{{ number_format($attendanceSummary['present'],0) }}/{{ number_format($attendanceSummary['total'],0) }}</div>
                             </div>
                         </div>
 
                         <div class="col-md-6">
                             <div class="card mb-4" style="background-color: #F59095; color: white;">
                                 <div class="card-body">Monthly Fee Status</div>
-                                @php
-                                use Carbon\Carbon;
-                    $currentMonth = Carbon::now()->format('Y-m'); // e.g., "2025-04"
-
-$monthlyFee = \App\Models\MonthlyFee::where(function ($query) {
-    $query->where('student_id', Auth::user()->id)
-          ->orWhere('user_id', Auth::user()->id);
-})->where('created_at', 'like', $currentMonth . '%')->first();
-
-$status = $monthlyFee ? $monthlyFee->status : 'pending';
-                                @endphp
-                                <div class="card-footer">{{$status}}</div>
+                                <div class="card-footer">{{ $monthlyFeeStatus }}</div>
                             </div>
                         </div>
                     </div>

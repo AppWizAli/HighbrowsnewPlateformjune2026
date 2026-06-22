@@ -45,7 +45,7 @@ public function signup(Request $request)
         'name' => 'required|string|max:255',
         'contact' => 'required|string|max:11',
         'email' => 'required|email|unique:users,email',
-        'grade' => 'required|string|max:12',
+        'grade' => 'required|integer|in:5,6,7,8,9,10,11,12,13',
         'category' => 'required|string',
         'password' => 'required|string|min:8',
     ]);
@@ -61,15 +61,28 @@ public function signup(Request $request)
         return back()->withErrors($validator)->withInput();
     }
 
-    // Create user
-    User::create([
-        'name' => $request->name,
-        'contact' => $request->contact,
-        'email' => $request->email,
-        'grade' => $request->grade,
-        'category' => $request->category,
-        'password' => Hash::make($request->password),
-    ]);
+    try {
+        User::create([
+            'name' => $request->name,
+            'contact' => $request->contact,
+            'email' => $request->email,
+            'grade' => (int) $request->grade,
+            'category' => $request->category,
+            'password' => Hash::make($request->password),
+        ]);
+    } catch (\Throwable $exception) {
+        Log::error('Signup user creation failed', [
+            'path' => $request->path(),
+            'ip' => $request->ip(),
+            'email' => $request->input('email'),
+            'exception_class' => get_class($exception),
+            'message' => $exception->getMessage(),
+        ]);
+
+        return redirect()->back()
+            ->withInput()
+            ->with('message', 'Unable to create account right now. Please try again.');
+    }
 
     Log::info('Signup completed successfully', [
         'path' => $request->path(),

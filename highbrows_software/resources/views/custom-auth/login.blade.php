@@ -53,12 +53,6 @@
         {{ session('message') }}
     </div>
 @endif
-   <div class="preloader  ">
-        <button class="vs-btn preloaderCls">Cancel Preloader </button>
-        <div class="preloader-inner">
-            <div class="loader"></div>
-        </div>
-    </div>
   <section class="space-top space-extra-bottom py-4 py-sm-5 px-3 px-sm-4 px-md-5">
   <div class="title-area3 text-center mb-4 wow fadeInUp" data-wow-delay="0.3s">
     <span class="sec-subtitle style1 d-block mb-2 fs-6">Welcome Back</span>

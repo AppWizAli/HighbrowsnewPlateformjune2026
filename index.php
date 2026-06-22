@@ -94,19 +94,6 @@ error_reporting(E_ALL);
 
 
     <!--==============================
-     Preloader
-    ==============================-->
-
-  <div class="preloader  ">
-        <button class="vs-btn preloaderCls">Cancel Preloader </button>
-        <div class="preloader-inner">
-            <div class="loader"></div>
-        </div>
-    </div>
-
-
-    
-    <!--==============================
     Hero Area
     ==============================-->
      <?php include 'Includes/Navbar.php'; ?>
